@@ -167,12 +167,12 @@ In other words, the engine prefers a real hybrid, but it never accepts invalid D
 
 Two same-family lookup parents:
 
-- `TFT` = `CCDCD` = `0010000000001100000100010001`
-- `PAVLOV` = `CCDDC` = `0010000000001100000100010100`
+- `TFT` = `CCDCD` = `001000000001010000011000000000010001`
+- `PAVLOV` = `CCDDC` = `001000000001010000011000000000010100`
 
 One valid child from those parents is:
 
-- `CCDDD` = `0010000000001100000100010101`
+- `CCDDD` = `001000000001010000011000000000010101`
 
 That child means:
 

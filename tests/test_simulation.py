@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from contextlib import redirect_stdout
+from enum import Enum
+import importlib.util
 from io import StringIO
 from math import ceil
 from pathlib import Path
 from random import Random
+import sys
+import types
 import unittest
 
 from cooperation_ga.config import SimulationConfig, VisualizationConfig
@@ -27,6 +31,159 @@ from cooperation_ga.metrics import GenerationMetrics, final_population_summary_r
 from cooperation_ga.population import Population
 from cooperation_ga.strategy import DnaStrategy, GrimTriggerStrategy, ParticipantSpec, RandomStrategy
 from cooperation_ga.tournament import run_interactions
+
+
+class _RefAction(str, Enum):
+    C = "C"
+    D = "D"
+
+    def flip(self) -> "_RefAction":
+        return _RefAction.D if self is _RefAction.C else _RefAction.C
+
+
+class _RefRandom:
+    def __init__(self, seed: int) -> None:
+        self._rng = Random(seed)
+
+    def random(self) -> float:
+        return self._rng.random()
+
+    def random_choice(self, probability: float) -> _RefAction:
+        return _RefAction.C if self._rng.random() < probability else _RefAction.D
+
+
+class _RefGame:
+    def RPST(self) -> tuple[int, int, int, int]:
+        return (3, 1, 0, 5)
+
+    def score(self, last_round: tuple[_RefAction, _RefAction]) -> tuple[int, int]:
+        if last_round == (_RefAction.C, _RefAction.C):
+            return (3, 3)
+        if last_round == (_RefAction.D, _RefAction.C):
+            return (5, 0)
+        if last_round == (_RefAction.C, _RefAction.D):
+            return (0, 5)
+        return (1, 1)
+
+
+class _RefPlayer:
+    classifier: dict[str, object] = {}
+
+    def __init__(self) -> None:
+        self.history: list[_RefAction] = []
+        self._random = _RefRandom(0)
+        self.match_attributes = {"game": _RefGame()}
+
+    @property
+    def defections(self) -> int:
+        return self.history.count(_RefAction.D)
+
+    @property
+    def cooperations(self) -> int:
+        return self.history.count(_RefAction.C)
+
+
+class _RefMemoryOnePlayer(_RefPlayer):
+    def __init__(self, four_vector: tuple[float, float, float, float] | None = None, initial: _RefAction = _RefAction.C) -> None:
+        super().__init__()
+        self._initial = initial
+        if four_vector is None:
+            four_vector = (1, 0, 0, 1)
+        self.set_four_vector(four_vector)
+
+    def set_four_vector(self, four_vector: tuple[float, float, float, float] | list[float]) -> None:
+        self._four_vector = dict(
+            zip(
+                [(_RefAction.C, _RefAction.C), (_RefAction.C, _RefAction.D), (_RefAction.D, _RefAction.C), (_RefAction.D, _RefAction.D)],
+                four_vector,
+            )
+        )
+
+    def strategy(self, opponent: _RefPlayer) -> _RefAction:
+        if not opponent.history:
+            return self._initial
+        probability = self._four_vector[(self.history[-1], opponent.history[-1])]
+        return self._random.random_choice(probability)
+
+
+def _install_axelrod_source_stubs() -> None:
+    if "axelrod.action" in sys.modules:
+        return
+    axelrod_pkg = types.ModuleType("axelrod")
+    axelrod_pkg.__path__ = []  # type: ignore[attr-defined]
+    strategies_pkg = types.ModuleType("axelrod.strategies")
+    strategies_pkg.__path__ = []  # type: ignore[attr-defined]
+    sys.modules["axelrod"] = axelrod_pkg
+    sys.modules["axelrod.strategies"] = strategies_pkg
+
+    action_module = types.ModuleType("axelrod.action")
+    action_module.Action = _RefAction
+    action_module.actions_to_str = lambda actions: "".join(action.value for action in actions)
+    action_module.str_to_actions = lambda text: [_RefAction.C if char == "C" else _RefAction.D for char in text]
+    sys.modules["axelrod.action"] = action_module
+
+    player_module = types.ModuleType("axelrod.player")
+    player_module.Player = _RefPlayer
+    sys.modules["axelrod.player"] = player_module
+
+    strategy_transformers_module = types.ModuleType("axelrod.strategy_transformers")
+    def _final_transformer(*_args, **_kwargs):
+        def decorator(cls):
+            return cls
+        return decorator
+    def _track_history_transformer(*_args, **_kwargs):
+        def decorator(cls):
+            return cls
+        return decorator
+    strategy_transformers_module.FinalTransformer = _final_transformer
+    strategy_transformers_module.TrackHistoryTransformer = _track_history_transformer
+    sys.modules["axelrod.strategy_transformers"] = strategy_transformers_module
+
+    memoryone_module = types.ModuleType("axelrod.strategies.memoryone")
+    memoryone_module.MemoryOnePlayer = _RefMemoryOnePlayer
+    sys.modules["axelrod.strategies.memoryone"] = memoryone_module
+
+    interaction_utils_module = types.ModuleType("axelrod.interaction_utils")
+    interaction_utils_module.compute_final_score = lambda *_args, **_kwargs: 0
+    sys.modules["axelrod.interaction_utils"] = interaction_utils_module
+
+    finite_state_machine_module = types.ModuleType("axelrod.strategies.finite_state_machines")
+    finite_state_machine_module.FSMPlayer = _RefPlayer
+    sys.modules["axelrod.strategies.finite_state_machines"] = finite_state_machine_module
+
+    evolvable_module = types.ModuleType("axelrod.evolvable_player")
+    evolvable_module.EvolvablePlayer = _RefPlayer
+    evolvable_module.InsufficientParametersError = RuntimeError
+    evolvable_module.crossover_lists = lambda left, right, _random: list(left)
+    sys.modules["axelrod.evolvable_player"] = evolvable_module
+
+    scipy_module = types.ModuleType("scipy")
+    scipy_stats_module = types.ModuleType("scipy.stats")
+    scipy_stats_module.chisquare = lambda *_args, **_kwargs: None
+    scipy_module.stats = scipy_stats_module
+    sys.modules["scipy"] = scipy_module
+    sys.modules["scipy.stats"] = scipy_stats_module
+
+
+def _load_reference_module(module_name: str, path: str) -> types.ModuleType:
+    _install_axelrod_source_stubs()
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load reference module: {module_name}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _to_ref_action(action: int) -> _RefAction:
+    return _RefAction.C if action == COOPERATE else _RefAction.D
+
+
+def _from_ref_action(action: _RefAction) -> int:
+    return COOPERATE if action == _RefAction.C else DEFECT
 
 
 class DnaTests(unittest.TestCase):
@@ -58,7 +215,7 @@ class DnaTests(unittest.TestCase):
         self.assertIn("approximate", levels)
         self.assertIn("unsupported", levels)
         self.assertTrue(any(mapping.axelrod_name == "Tit For Tat" and mapping.support_level == "exact" for mapping in mappings))
-        self.assertTrue(any(mapping.axelrod_name == "Cycler CCCCD" and mapping.support_level == "exact" for mapping in mappings))
+        self.assertTrue(any(mapping.axelrod_name == "Cycler CCCCCD" and mapping.support_level == "exact" for mapping in mappings))
 
     def test_baseline_library_has_unique_dna_per_name(self) -> None:
         library = baseline_dna_library()
@@ -209,6 +366,34 @@ class DnaTests(unittest.TestCase):
 
 
 class StrategyTests(unittest.TestCase):
+    def _assert_matches_reference(
+        self,
+        shortname: str,
+        reference_cls: type[_RefPlayer],
+        opponent_moves: list[int],
+        seed: int = 0,
+        setup_reference: bool = False,
+    ) -> None:
+        strategy = DnaStrategy(baseline_dna_library()[shortname])
+        state = strategy.initial_state()
+        our_rng = Random(seed)
+        reference = reference_cls()
+        reference._random = _RefRandom(seed)
+        if setup_reference and hasattr(reference, "receive_match_attributes"):
+            reference.receive_match_attributes()
+        opponent = _RefPlayer()
+
+        own_history: list[int] = []
+        opp_history: list[int] = []
+        for opponent_move in opponent_moves:
+            our_action, state = strategy.next_move(own_history, opp_history, our_rng, state)
+            ref_action = reference.strategy(opponent)
+            self.assertEqual(our_action, _from_ref_action(ref_action))
+            own_history.append(our_action)
+            opp_history.append(opponent_move)
+            reference.history.append(ref_action)
+            opponent.history.append(_to_ref_action(opponent_move))
+
     def test_decision_lookup_uses_previous_round_state(self) -> None:
         dna = StrategyDNA.from_action_string("CDDCC")
         strategy = DnaStrategy(dna)
@@ -237,6 +422,19 @@ class StrategyTests(unittest.TestCase):
         coop = sum(strategy.next_move([], [], rng, strategy.initial_state())[0] == COOPERATE for _ in range(1000))
         self.assertGreater(coop / 1000, 0.7)
         self.assertLess(coop / 1000, 0.8)
+
+    def test_lookup_random_gene_uses_encoded_probability(self) -> None:
+        dna = StrategyDNA.lookup_table(
+            init_action=RANDOM,
+            memory_depth=1,
+            table_actions=(RANDOM, RANDOM, RANDOM, RANDOM),
+            random_action_probability=0.8,
+        )
+        strategy = DnaStrategy(dna)
+        rng = Random(4)
+        coop = sum(strategy.next_move([], [], rng, strategy.initial_state())[0] == COOPERATE for _ in range(2000))
+        self.assertGreater(coop / 2000, 0.75)
+        self.assertLess(coop / 2000, 0.85)
 
     def test_count_based_strategy_uses_recent_opponent_ratio(self) -> None:
         dna = StrategyDNA.count_based(
@@ -357,6 +555,25 @@ class StrategyTests(unittest.TestCase):
             DEFECT,
         )
 
+    def test_shubik_does_not_escalate_when_opponent_defects_during_retaliation(self) -> None:
+        strategy = DnaStrategy(baseline_dna_library()["SHUBIK"])
+        state = strategy.initial_state()
+        own_history: list[int] = []
+        opp_history: list[int] = []
+
+        action, state = strategy.next_move(own_history, opp_history, Random(0), state)
+        self.assertEqual(action, COOPERATE)
+        own_history.append(action)
+        opp_history.append(DEFECT)
+
+        action, state = strategy.next_move(own_history, opp_history, Random(0), state)
+        self.assertEqual(action, DEFECT)
+        own_history.append(action)
+        opp_history.append(DEFECT)
+
+        action, state = strategy.next_move(own_history, opp_history, Random(0), state)
+        self.assertEqual(action, COOPERATE)
+
     def test_counter_trigger_uses_explicit_punishment_state(self) -> None:
         strategy = DnaStrategy(baseline_dna_library()["SHUBIK_COUNTER"])
         state = strategy.initial_state()
@@ -376,12 +593,13 @@ class StrategyTests(unittest.TestCase):
             triggered_action=RANDOM,
             trigger_states=(False, True, False, True),
             base_punishment_length=1,
+            random_action_probability=0.8,
         )
         strategy = DnaStrategy(dna)
-        result = simulate_match(strategy, strategy, 8, PayoffMatrix(), 0.0, Random(5))
-        self.assertEqual(result.rounds, 8)
-        self.assertEqual(result.coop_a + result.defect_a, 8)
-        self.assertEqual(result.coop_b + result.defect_b, 8)
+        rng = Random(5)
+        coop = sum(strategy.next_move([], [], rng, strategy.initial_state())[0] == COOPERATE for _ in range(2000))
+        self.assertGreater(coop / 2000, 0.75)
+        self.assertLess(coop / 2000, 0.85)
 
     def test_champion_uses_opening_tft_and_late_rule(self) -> None:
         strategy = DnaStrategy(baseline_dna_library()["CHAMPION"])
@@ -450,6 +668,19 @@ class StrategyTests(unittest.TestCase):
             opp_history.append(COOPERATE)
         self.assertEqual(actions, [COOPERATE, COOPERATE, COOPERATE, COOPERATE, DEFECT] * 2)
 
+    def test_cycler_cccccd_repeats_six_turn_pattern(self) -> None:
+        strategy = DnaStrategy(baseline_dna_library()["CYCLER_CCCCCD"])
+        state = strategy.initial_state()
+        own_history: list[int] = []
+        opp_history: list[int] = []
+        actions: list[int] = []
+        for _ in range(12):
+            action, state = strategy.next_move(own_history, opp_history, Random(0), state)
+            actions.append(action)
+            own_history.append(action)
+            opp_history.append(COOPERATE)
+        self.assertEqual(actions, [COOPERATE, COOPERATE, COOPERATE, COOPERATE, COOPERATE, DEFECT] * 2)
+
     def test_cycler_ccd_repeats_three_turn_pattern(self) -> None:
         strategy = DnaStrategy(baseline_dna_library()["CYCLER_CCD"])
         state = strategy.initial_state()
@@ -489,6 +720,162 @@ class StrategyTests(unittest.TestCase):
         coop = sum(strategy.next_move([], [], rng, strategy.initial_state())[0] == COOPERATE for _ in range(2000))
         self.assertGreater(coop / 2000, 0.65)
         self.assertLess(coop / 2000, 0.75)
+
+    def test_reference_joss_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.axelrod_first",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_first.py",
+        )
+        self._assert_matches_reference("JOSS", module.FirstByJoss, [COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, DEFECT], seed=7)
+
+    def test_reference_cooperator_and_defector_match_axelrod_source(self) -> None:
+        cooperator_module = _load_reference_module(
+            "axelrod.strategies.cooperator",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/cooperator.py",
+        )
+        defector_module = _load_reference_module(
+            "axelrod.strategies.defector",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/defector.py",
+        )
+        opponent_moves = [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE]
+        self._assert_matches_reference("ALLC", cooperator_module.Cooperator, opponent_moves)
+        self._assert_matches_reference("ALLD", defector_module.Defector, opponent_moves)
+
+    def test_reference_tft_family_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.titfortat",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/titfortat.py",
+        )
+        opponent_moves = [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE]
+        self._assert_matches_reference("TFT", module.TitForTat, opponent_moves)
+        self._assert_matches_reference("SUSPICIOUS_TFT", module.SuspiciousTitForTat, opponent_moves)
+        self._assert_matches_reference("TF2T", module.TitFor2Tats, opponent_moves)
+
+    def test_reference_nydegger_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.axelrod_first",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_first.py",
+        )
+        self._assert_matches_reference("NYDEGGER", module.FirstByNydegger, [DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT])
+
+    def test_reference_shubik_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.axelrod_first",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_first.py",
+        )
+        self._assert_matches_reference("SHUBIK", module.FirstByShubik, [DEFECT, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT])
+
+    def test_reference_tullock_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.axelrod_first",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_first.py",
+        )
+        self._assert_matches_reference("TULLOCK", module.FirstByTullock, [COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE, COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE], seed=11)
+
+    def test_reference_champion_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.axelrod_second",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_second.py",
+        )
+        self._assert_matches_reference("CHAMPION", module.SecondByChampion, [COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE], seed=13)
+
+    def test_reference_go_by_majority_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.gobymajority",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/gobymajority.py",
+        )
+        self._assert_matches_reference("GO_BY_MAJORITY", module.GoByMajority, [COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT])
+        self._assert_matches_reference("HARD_GO_BY_MAJORITY", module.HardGoByMajority, [COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT])
+
+    def test_reference_grudger_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.grudger",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/grudger.py",
+        )
+        self._assert_matches_reference("GRUDGER", module.Grudger, [COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE])
+
+    def test_reference_appeaser_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.appeaser",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/appeaser.py",
+        )
+        self._assert_matches_reference("APPEASER", module.Appeaser, [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE])
+
+    def test_reference_alternator_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.alternator",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/alternator.py",
+        )
+        self._assert_matches_reference("ALTERNATOR", module.Alternator, [COOPERATE, COOPERATE, DEFECT, DEFECT, COOPERATE, DEFECT])
+
+    def test_reference_pavlov_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.memoryone_reference",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/memoryone.py",
+        )
+        self._assert_matches_reference("PAVLOV", module.WinStayLoseShift, [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE], setup_reference=True)
+
+    def test_reference_random_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.rand",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/rand.py",
+        )
+        self._assert_matches_reference("RANDOM", module.Random, [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE], seed=19)
+
+    def test_reference_cyclers_match_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.cycler",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/cycler.py",
+        )
+        self._assert_matches_reference("CYCLER_CCD", module.CyclerCCD, [COOPERATE] * 8)
+        self._assert_matches_reference("CYCLER_CCCD", module.CyclerCCCD, [COOPERATE] * 8)
+        self._assert_matches_reference("CYCLER_CCCCCD", module.CyclerCCCCCD, [COOPERATE] * 12)
+
+    def test_reference_gtft_matches_axelrod_source_under_default_payoffs(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.memoryone_reference",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/memoryone.py",
+        )
+        self._assert_matches_reference("GTFT", module.GTFT, [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE], seed=17, setup_reference=True)
+
+    def test_reference_prober_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.prober",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/prober.py",
+        )
+        self._assert_matches_reference("PROBER", module.Prober, [COOPERATE, COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT])
+
+    def test_reference_adaptive_matches_axelrod_source_under_default_payoffs(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.adaptive",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/adaptive.py",
+        )
+        self._assert_matches_reference("ADAPTIVE", module.Adaptive, [COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE])
+
+    def test_reference_apavlov_variants_match_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.apavlov",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/apavlov.py",
+        )
+        opponent_moves = [COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, COOPERATE, COOPERATE, COOPERATE, COOPERATE]
+        self._assert_matches_reference("APAVLOV2006", module.APavlov2006, opponent_moves)
+        self._assert_matches_reference("APAVLOV2011", module.APavlov2011, opponent_moves)
+
+    def test_reference_second_by_grofman_matches_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.axelrod_second",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_second.py",
+        )
+        self._assert_matches_reference("SECOND_BY_GROFMAN", module.SecondByGrofman, [COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, DEFECT])
+
+    def test_reference_adaptor_variants_match_axelrod_source(self) -> None:
+        module = _load_reference_module(
+            "axelrod.strategies.adaptor",
+            ".venv/lib/python3.14/site-packages/axelrod/strategies/adaptor.py",
+        )
+        opponent_moves = [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT]
+        self._assert_matches_reference("ADAPTOR_BRIEF", module.AdaptorBrief, opponent_moves, seed=23)
+        self._assert_matches_reference("ADAPTOR_LONG", module.AdaptorLong, opponent_moves, seed=23)
 
     def test_grim_defects_forever_after_betrayal(self) -> None:
         strategy = GrimTriggerStrategy()
@@ -956,12 +1343,24 @@ class EngineTests(unittest.TestCase):
         engine = EvolutionEngine.from_config(config)
         parent_a = baseline_dna_library()["TFT"]
         parent_b = baseline_dna_library()["TFT"]
-        child, did_crossover, mutation_count = engine._create_valid_offspring(parent_a, parent_b, 1.0 / len(parent_a.genes))
-        self.assertTrue(isinstance(child, StrategyDNA))
-        self.assertFalse(did_crossover)
-        self.assertGreaterEqual(mutation_count, 0)
-        self.assertNotEqual(child.to_string(), parent_a.to_string())
-        self.assertEqual(mutation_count, sum(1 for before, after in zip(parent_a.genes, child.genes) if before != after))
+        produced_mutated_child = False
+        for _ in range(20):
+            child, did_crossover, mutation_count = engine._create_valid_offspring(
+                parent_a,
+                parent_b,
+                1.0 / len(parent_a.genes),
+            )
+            self.assertTrue(isinstance(child, StrategyDNA))
+            self.assertFalse(did_crossover)
+            self.assertGreaterEqual(mutation_count, 0)
+            self.assertEqual(
+                mutation_count,
+                sum(1 for before, after in zip(parent_a.genes, child.genes) if before != after),
+            )
+            if child.to_string() != parent_a.to_string():
+                produced_mutated_child = True
+                break
+        self.assertTrue(produced_mutated_child)
 
 
 if __name__ == "__main__":

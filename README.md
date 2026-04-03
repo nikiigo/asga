@@ -123,13 +123,13 @@ Implemented DNA families and payload meaning:
 
 | Family | Purpose | Payload summary |
 | --- | --- | --- |
-| `LOOKUP` | Deterministic history table | initial action, memory depth, action table |
-| `TRIGGER` | Binary trigger strategies | initial/default/triggered actions, trigger states, forgiveness |
-| `COUNT_BASED` | Majority/count thresholds | initial action, window, threshold, mode |
+| `LOOKUP` | History table with optional random action genes | initial action, memory depth, random-action probability, action table |
+| `TRIGGER` | Binary trigger strategies | initial/default/triggered actions, trigger states, forgiveness, random-action probability |
+| `COUNT_BASED` | Majority/count thresholds | initial action, window, threshold, mode, random-action probability |
 | `PROBABILISTIC_LOOKUP` | Stochastic memory-k strategies | initial probability, memory depth, probability table |
-| `FSM` | Finite state machines | initial action, state count, initial state, transitions |
+| `FSM` | Finite state machines | initial action, state count, initial state, random-action probability, transitions |
 | `SCRIPTED` | Exact named algorithms | script id plus family-specific parameters |
-| `COUNTER_TRIGGER` | Escalating punishment rules | trigger states plus punishment-length parameters |
+| `COUNTER_TRIGGER` | Escalating punishment rules | trigger states, punishment-length parameters, random-action probability |
 
 Implemented DNA families:
 
@@ -142,6 +142,12 @@ Implemented DNA families:
 - `COUNTER_TRIGGER`
 
 The exported `dna` field is the raw bit string. When a DNA matches a known baseline, exports also include the corresponding `strategy_name`.
+
+Action-gene note:
+
+- `RANDOM` is a real gene, not a hardcoded 50/50 fallback
+- in `LOOKUP`, `TRIGGER`, `COUNT_BASED`, `FSM`, and `COUNTER_TRIGGER`, the genome carries a family-level random-action probability used whenever an action gene is `RANDOM`
+- `PROBABILISTIC_LOOKUP` already stores explicit probabilities per state
 
 ## How Children Are Formed
 
@@ -166,12 +172,12 @@ That means the child DNA is always one of these:
 
 Same-family deterministic lookup parents:
 
-- `TFT` = `CCDCD` = `0010000000001100000100010001`
-- `PAVLOV` = `CCDDC` = `0010000000001100000100010100`
+- `TFT` = `CCDCD` = `001000000001010000011000000000010001`
+- `PAVLOV` = `CCDDC` = `001000000001010000011000000000010100`
 
 One valid child produced from those parents is:
 
-- `CCDDD` = `0010000000001100000100010101`
+- `CCDDD` = `001000000001010000011000000000010101`
 
 Human meaning of that child:
 
@@ -198,29 +204,41 @@ So in practice:
 
 The simulator uses only strategies that have an exact DNA encoding. The table below shows the current exact strategy set and how each one is encoded.
 
+Note:
+
+- `GTFT` matches the Axelrod reference exactly for the default payoff matrix `(R=3, P=1, S=0, T=5)`
+- if you change the payoff matrix, Axelrod's reference `GTFT` would recompute its generosity parameter from the game, while this simulator keeps the encoded default-payoff value
+
 | Strategy | DNA family | Raw DNA |
 | --- | --- | --- |
-| `ALLC` | `LOOKUP`, shorthand `CCCCC` | `0010000000001100000100000000` |
-| `ALLD` | `LOOKUP`, shorthand `DDDDD` | `0010000000001100010101010101` |
-| `TFT` | `LOOKUP`, shorthand `CCDCD` | `0010000000001100000100010001` |
-| `SUSPICIOUS_TFT` | `LOOKUP`, shorthand `DCDCD` | `0010000000001100010100010001` |
-| `TF2T` | `LOOKUP`, memory depth `2` | `0010000000100100001000000000000100010000000000010001` |
-| `PAVLOV` | `LOOKUP`, shorthand `CCDDC` | `0010000000001100000100010100` |
+| `ALLC` | `LOOKUP`, shorthand `CCCCC` | `001000000001010000011000000000000000` |
+| `ALLD` | `LOOKUP`, shorthand `DDDDD` | `001000000001010001011000000001010101` |
+| `TFT` | `LOOKUP`, shorthand `CCDCD` | `001000000001010000011000000000010001` |
+| `SUSPICIOUS_TFT` | `LOOKUP`, shorthand `DCDCD` | `001000000001010001011000000000010001` |
+| `TF2T` | `LOOKUP`, memory depth `2` | `001000000010110000101000000000000000000100010000000000010001` |
+| `PAVLOV` | `LOOKUP`, shorthand `CCDDC` | `001000000001010000011000000000010100` |
 | `JOSS` | `PROBABILISTIC_LOOKUP`, memory depth `1` | `0010001100101010111111110111100110000000001110011000000000` |
 | `GTFT` | `PROBABILISTIC_LOOKUP`, memory depth `1` | `0010001100101010111111110111111111010101011111111101010101` |
 | `RANDOM` | `PROBABILISTIC_LOOKUP`, constant `p(C)=0.5` | `0010001100101010100000000110000000100000001000000010000000` |
-| `GRUDGER` | `TRIGGER` | `0010000100010010000001010100000000` |
+| `GRUDGER` | `TRIGGER` | `001000010001101000000101010000000010000000` |
 | `NYDEGGER` | `SCRIPTED[NYDEGGER]` | `001001010010000000000000000000000000000000000000` |
 | `SHUBIK` | `SCRIPTED[SHUBIK]` | `001001010010000000000001000000000000000000000000` |
 | `CHAMPION` | `SCRIPTED[CHAMPION]` | `001001010010000000000010000000000000000000000000` |
 | `TULLOCK` | `SCRIPTED[TULLOCK]` | `001001010010000000000011000000000000000000000000` |
-| `ALTERNATOR` | `FSM` | `00100100000111000000100001001010010000000000` |
-| `CYCLER_CCD` | `FSM` | `001001000010011000010000000010000101010010100000000000` |
-| `CYCLER_CCCD` | `FSM` | `0010010000110000000110000000100001000100001001011010110000000000` |
-| `CYCLER_CCCCD` | `FSM` | `00100100001110100010000000001000010001000010000110001101100011000000000000` |
-| `APPEASER` | `FSM` | `00100100000111000000100000000010010100100000` |
-| `GO_BY_MAJORITY` | `COUNT_BASED` | `00100010000101100000000000100000000110` |
-| `HARD_GO_BY_MAJORITY` | `COUNT_BASED` | `00100010000101100000000000100000010110` |
+| `PROBER` | `SCRIPTED[PROBER]` | `001001010010000000000101000000000000000000000000` |
+| `ADAPTIVE` | `SCRIPTED[ADAPTIVE]` | `001001010010000000000110000000000000000000000000` |
+| `APAVLOV2006` | `SCRIPTED[APAVLOV2006]` | `001001010010000000000111000000000000000000000000` |
+| `APAVLOV2011` | `SCRIPTED[APAVLOV2011]` | `001001010010000000001000000000000000000000000000` |
+| `SECOND_BY_GROFMAN` | `SCRIPTED[SECOND_BY_GROFMAN]` | `001001010010000000001001000000000000000000000000` |
+| `ADAPTOR_BRIEF` | `SCRIPTED[ADAPTOR_BRIEF]` | `001001010010000000001010000000000000000000000000` |
+| `ADAPTOR_LONG` | `SCRIPTED[ADAPTOR_LONG]` | `001001010010000000001011000000000000000000000000` |
+| `ALTERNATOR` | `FSM` | `0010010000100100000010001000000001001010010000000000` |
+| `CYCLER_CCD` | `FSM` | `00100100001011100001000010000000000010000101010010100000000000` |
+| `CYCLER_CCCD` | `FSM` | `001001000011100000011000100000000000100001000100001001011010110000000000` |
+| `CYCLER_CCCCCD` | `SCRIPTED[CYCLER_CCCCCD]` | `001001010010000000000100000000000000000000000000` |
+| `APPEASER` | `FSM` | `0010010000100100000010001000000000000010010100100000` |
+| `GO_BY_MAJORITY` | `COUNT_BASED` | `0010001000011110000000000010000000011010000000` |
+| `HARD_GO_BY_MAJORITY` | `COUNT_BASED` | `0010001000011110000000000010000001011010000000` |
 | `GO_BY_MAJORITY_5/10/20/40` | `COUNT_BASED` with explicit window | family variants with distinct raw DNA |
 | `HARD_GO_BY_MAJORITY_5/10/20/40` | `COUNT_BASED` with explicit window | family variants with distinct raw DNA |
 
@@ -229,7 +247,7 @@ The default seeded strategy list is:
 - `ALLC`
 - `ALLD`
 - `TFT`
-- `TF2T`
+- `TF2T` (`Tit For 2 Tats`)
 - `PAVLOV`
 - `JOSS`
 - `GTFT`

@@ -34,14 +34,14 @@ FAMILY_TO_CODE: Final[dict[str, int]] = {
 }
 CODE_TO_FAMILY: Final[dict[int, str]] = {code: name for name, code in FAMILY_TO_CODE.items()}
 
-LOOKUP_BITS = 2 + 2
-TRIGGER_BITS = 2 + 2 + 2 + 4 + 8
-COUNT_BASED_BITS = 2 + 8 + 8 + 2 + 1 + 1
+LOOKUP_BITS = 2 + 2 + 8
+TRIGGER_BITS = 2 + 2 + 2 + 4 + 8 + 8
+COUNT_BASED_BITS = 2 + 8 + 8 + 2 + 1 + 1 + 8
 PROB_LOOKUP_BITS = 8 + 2
-FSM_BITS = 2 + 3 + 3
+FSM_BITS = 2 + 3 + 3 + 8
 FSM_TRANSITION_BITS = 5
 SCRIPTED_BITS = 8 + 24
-COUNTER_TRIGGER_BITS = 2 + 2 + 2 + 4 + 8 + 8 + 8 + 1 + 1
+COUNTER_TRIGGER_BITS = 2 + 2 + 2 + 4 + 8 + 8 + 8 + 1 + 1 + 8
 
 STATE_ORDER: Final[list[tuple[int, int]]] = [
     (COOPERATE, COOPERATE),
@@ -59,6 +59,14 @@ SCRIPT_ID_TO_NAME: Final[dict[int, str]] = {
     1: "SHUBIK",
     2: "CHAMPION",
     3: "TULLOCK",
+    4: "CYCLER_CCCCCD",
+    5: "PROBER",
+    6: "ADAPTIVE",
+    7: "APAVLOV2006",
+    8: "APAVLOV2011",
+    9: "SECOND_BY_GROFMAN",
+    10: "ADAPTOR_BRIEF",
+    11: "ADAPTOR_LONG",
 }
 SCRIPT_NAME_TO_ID: Final[dict[str, int]] = {name: script_id for script_id, name in SCRIPT_ID_TO_NAME.items()}
 
@@ -169,6 +177,7 @@ class StrategyDNA:
         init_action: int,
         memory_depth: int,
         table_actions: tuple[int, ...] | list[int],
+        random_action_probability: float = 0.5,
     ) -> "StrategyDNA":
         """Create a lookup-table genome."""
         effective_memory = max(1, min(memory_depth, MAX_MEMORY))
@@ -178,6 +187,7 @@ class StrategyDNA:
         payload = (
             action_to_bits(init_action)
             + _int_to_bits(effective_memory, 2)
+            + _int_to_bits(_probability_to_byte(random_action_probability), 8)
             + tuple(bit for action in table_actions for bit in action_to_bits(action))
         )
         return cls(_build_header("LOOKUP", len(payload)) + payload)
@@ -190,6 +200,7 @@ class StrategyDNA:
         triggered_action: int,
         trigger_states: tuple[bool, bool, bool, bool],
         forgiveness_probability: float = 0.0,
+        random_action_probability: float = 0.5,
     ) -> "StrategyDNA":
         """Create a trigger-based genome with persistent historical activation."""
         payload = (
@@ -198,6 +209,7 @@ class StrategyDNA:
             + action_to_bits(triggered_action)
             + tuple(int(flag) for flag in trigger_states)
             + _int_to_bits(_probability_to_byte(forgiveness_probability), 8)
+            + _int_to_bits(_probability_to_byte(random_action_probability), 8)
         )
         return cls(_build_header("TRIGGER", len(payload)) + payload)
 
@@ -209,6 +221,7 @@ class StrategyDNA:
         threshold: int,
         comparison_mode: int = COUNT_MODE_ABSOLUTE,
         cooperate_if_ge: bool = True,
+        random_action_probability: float = 0.5,
     ) -> "StrategyDNA":
         """Create a count-based genome that reacts to opponent cooperation statistics."""
         if comparison_mode not in {COUNT_MODE_ABSOLUTE, COUNT_MODE_RATIO}:
@@ -219,6 +232,7 @@ class StrategyDNA:
             + _int_to_bits(threshold, 8)
             + _int_to_bits(comparison_mode, 2)
             + (int(cooperate_if_ge), 0)
+            + _int_to_bits(_probability_to_byte(random_action_probability), 8)
         )
         return cls(_build_header("COUNT_BASED", len(payload)) + payload)
 
@@ -251,6 +265,7 @@ class StrategyDNA:
         init_action: int,
         initial_state: int,
         transitions: tuple[tuple[int, int], ...] | list[tuple[int, int]],
+        random_action_probability: float = 0.5,
     ) -> "StrategyDNA":
         """Create a finite-state-machine genome keyed by opponent last action."""
         state_count = len(transitions) // 2
@@ -264,6 +279,7 @@ class StrategyDNA:
             action_to_bits(init_action)
             + _int_to_bits(state_count - 1, 3)
             + _int_to_bits(initial_state, 3)
+            + _int_to_bits(_probability_to_byte(random_action_probability), 8)
             + tuple(
                 bit
                 for action, next_state in transitions
@@ -302,6 +318,7 @@ class StrategyDNA:
         escalation_step: int = 1,
         max_punishment_length: int = 255,
         forgive_after_serving: bool = True,
+        random_action_probability: float = 0.5,
     ) -> "StrategyDNA":
         """Create a trigger genome with explicit punishment counter semantics."""
         payload = (
@@ -313,6 +330,7 @@ class StrategyDNA:
             + _int_to_bits(escalation_step, 8)
             + _int_to_bits(max_punishment_length, 8)
             + (int(forgive_after_serving), 0)
+            + _int_to_bits(_probability_to_byte(random_action_probability), 8)
         )
         return cls(_build_header("COUNTER_TRIGGER", len(payload)) + payload)
 
@@ -336,12 +354,14 @@ class StrategyDNA:
                 return (
                     f"{prefix}LOOKUP strategy with memory depth 1. "
                     f"Initial move {ACTION_TO_TEXT[self.lookup_init_action()]}; "
-                    f"responses {state_table}."
+                    f"responses {state_table}. "
+                    f"RANDOM actions cooperate with probability {self.lookup_random_action_probability():.3f}."
                 )
             return (
                 f"{prefix}LOOKUP strategy with memory depth {memory}. "
                 f"Initial move {ACTION_TO_TEXT[self.lookup_init_action()]}; "
-                f"table contains {len(actions)} deterministic entries."
+                f"table contains {len(actions)} action entries. "
+                f"RANDOM actions cooperate with probability {self.lookup_random_action_probability():.3f}."
             )
         if family == "TRIGGER":
             trigger_states = ", ".join(
@@ -354,7 +374,8 @@ class StrategyDNA:
                 f"default action {ACTION_TO_TEXT[self.trigger_default_action()]}; "
                 f"once triggered by states [{trigger_states}], plays "
                 f"{ACTION_TO_TEXT[self.trigger_triggered_action()]}. "
-                f"Forgiveness probability {self.trigger_forgiveness_probability():.3f}."
+                f"Forgiveness probability {self.trigger_forgiveness_probability():.3f}. "
+                f"RANDOM actions cooperate with probability {self.trigger_random_action_probability():.3f}."
             )
         if family == "COUNT_BASED":
             mode = "absolute count" if self.count_based_mode() == COUNT_MODE_ABSOLUTE else "cooperation ratio"
@@ -363,7 +384,8 @@ class StrategyDNA:
                 f"{prefix}COUNT_BASED strategy. Initial move {ACTION_TO_TEXT[self.count_based_init_action()]}; "
                 f"uses {mode} over a window of "
                 f"{'full history' if self.count_based_window() == 0 else self.count_based_window()} "
-                f"with threshold {self.count_based_threshold()}; if the threshold is met, it will {comparator}."
+                f"with threshold {self.count_based_threshold()}; if the threshold is met, it will {comparator}. "
+                f"RANDOM initial actions cooperate with probability {self.count_based_random_action_probability():.3f}."
             )
         if family == "PROBABILISTIC_LOOKUP":
             memory = self.prob_lookup_memory_depth()
@@ -397,6 +419,7 @@ class StrategyDNA:
                 f"{prefix}FSM strategy with {self.fsm_state_count()} states. "
                 f"Initial move {ACTION_TO_TEXT[self.fsm_init_action()]}; "
                 f"initial state S{self.fsm_initial_state()}. "
+                f"RANDOM actions cooperate with probability {self.fsm_random_action_probability():.3f}. "
                 + " ".join(transition_descriptions)
             )
         if family == "SCRIPTED":
@@ -418,7 +441,8 @@ class StrategyDNA:
                 f"{self.counter_trigger_base_punishment_length()}, escalation "
                 f"{self.counter_trigger_escalation_step()}, cap "
                 f"{self.counter_trigger_max_punishment_length()}, forgive_after_serving="
-                f"{self.counter_trigger_forgive_after_serving()}."
+                f"{self.counter_trigger_forgive_after_serving()}. "
+                f"RANDOM actions cooperate with probability {self.counter_trigger_random_action_probability():.3f}."
             )
         return f"{prefix}{family} strategy."
 
@@ -454,10 +478,15 @@ class StrategyDNA:
         payload = self.payload_bits()
         return max(1, min(_bits_to_int(payload[2:4]), MAX_MEMORY))
 
+    def lookup_random_action_probability(self) -> float:
+        """Return the lookup-family probability used for RANDOM action genes."""
+        payload = self.payload_bits()
+        return _bits_to_int(payload[4:12]) / 255.0
+
     def lookup_table_actions(self) -> tuple[int, ...]:
         """Return the decoded lookup table."""
         payload = self.payload_bits()
-        actions = payload[4:]
+        actions = payload[12:]
         return tuple(_action_from_bits(actions[index : index + 2]) for index in range(0, len(actions), 2))
 
     def action_for_history(self, own_history: list[int], opp_history: list[int]) -> int:
@@ -495,6 +524,11 @@ class StrategyDNA:
         payload = self.payload_bits()
         return _bits_to_int(payload[10:18]) / 255.0
 
+    def trigger_random_action_probability(self) -> float:
+        """Return the trigger-family probability used for RANDOM action genes."""
+        payload = self.payload_bits()
+        return _bits_to_int(payload[18:26]) / 255.0
+
     def count_based_init_action(self) -> int:
         """Return the count-based initial action."""
         payload = self.payload_bits()
@@ -519,6 +553,11 @@ class StrategyDNA:
         """Return whether the strategy cooperates when the threshold condition is met."""
         payload = self.payload_bits()
         return bool(payload[20])
+
+    def count_based_random_action_probability(self) -> float:
+        """Return the count-based probability used for RANDOM initial actions."""
+        payload = self.payload_bits()
+        return _bits_to_int(payload[22:30]) / 255.0
 
     def prob_lookup_init_probability(self) -> float:
         """Return the initial cooperation probability."""
@@ -560,9 +599,14 @@ class StrategyDNA:
         payload = self.payload_bits()
         return _bits_to_int(payload[5:8])
 
+    def fsm_random_action_probability(self) -> float:
+        """Return the FSM-family probability used for RANDOM action genes."""
+        payload = self.payload_bits()
+        return _bits_to_int(payload[8:16]) / 255.0
+
     def fsm_transitions(self) -> tuple[tuple[int, int], ...]:
         """Return FSM transitions as (action, next_state) pairs."""
-        payload = self.payload_bits()[8:]
+        payload = self.payload_bits()[16:]
         transitions = []
         for index in range(0, len(payload), FSM_TRANSITION_BITS):
             action = _action_from_bits(payload[index : index + 2])
@@ -639,6 +683,11 @@ class StrategyDNA:
         payload = self.payload_bits()
         return bool(payload[34])
 
+    def counter_trigger_random_action_probability(self) -> float:
+        """Return the counter-trigger probability used for RANDOM action genes."""
+        payload = self.payload_bits()
+        return _bits_to_int(payload[36:44]) / 255.0
+
     def _validate_payload(self) -> None:
         """Validate the family-specific payload layout."""
         family = self.family_name()
@@ -651,7 +700,7 @@ class StrategyDNA:
             if len(payload) != expected:
                 raise ValueError("Lookup payload length is inconsistent with memory depth.")
             _validate_action_bits(payload[:2])
-            for index in range(4, len(payload), 2):
+            for index in range(12, len(payload), 2):
                 _validate_action_bits(payload[index : index + 2])
             return
         if family == "TRIGGER":
@@ -687,7 +736,7 @@ class StrategyDNA:
             if initial_state >= state_count:
                 raise ValueError("FSM initial_state exceeds state count.")
             _validate_action_bits(payload[:2])
-            for index in range(8, len(payload), FSM_TRANSITION_BITS):
+            for index in range(16, len(payload), FSM_TRANSITION_BITS):
                 _validate_action_bits(payload[index : index + 2])
                 next_state = _bits_to_int(payload[index + 2 : index + 5])
                 if next_state >= state_count:
@@ -741,6 +790,13 @@ def baseline_dna_library() -> dict[str, StrategyDNA]:
         "SHUBIK": StrategyDNA.scripted("SHUBIK"),
         "CHAMPION": StrategyDNA.scripted("CHAMPION"),
         "TULLOCK": StrategyDNA.scripted("TULLOCK"),
+        "PROBER": StrategyDNA.scripted("PROBER"),
+        "ADAPTIVE": StrategyDNA.scripted("ADAPTIVE"),
+        "APAVLOV2006": StrategyDNA.scripted("APAVLOV2006"),
+        "APAVLOV2011": StrategyDNA.scripted("APAVLOV2011"),
+        "SECOND_BY_GROFMAN": StrategyDNA.scripted("SECOND_BY_GROFMAN"),
+        "ADAPTOR_BRIEF": StrategyDNA.scripted("ADAPTOR_BRIEF"),
+        "ADAPTOR_LONG": StrategyDNA.scripted("ADAPTOR_LONG"),
         "SHUBIK_COUNTER": StrategyDNA.counter_trigger(
             init_action=COOPERATE,
             default_action=COOPERATE,
@@ -787,6 +843,7 @@ def baseline_dna_library() -> dict[str, StrategyDNA]:
                 (COOPERATE, 0), (COOPERATE, 0),
             ),
         ),
+        "CYCLER_CCCCCD": StrategyDNA.scripted("CYCLER_CCCCCD"),
         "SUSPICIOUS_ALTERNATOR": StrategyDNA.fsm(
             init_action=DEFECT,
             initial_state=0,
@@ -805,7 +862,7 @@ def baseline_dna_library() -> dict[str, StrategyDNA]:
             cooperate_if_ge=True,
         ),
         "HARD_GO_BY_MAJORITY": StrategyDNA.count_based(
-            init_action=COOPERATE,
+            init_action=DEFECT,
             window=0,
             threshold=129,
             comparison_mode=COUNT_MODE_RATIO,
@@ -840,28 +897,28 @@ def baseline_dna_library() -> dict[str, StrategyDNA]:
             cooperate_if_ge=True,
         ),
         "HARD_GO_BY_MAJORITY_5": StrategyDNA.count_based(
-            init_action=COOPERATE,
+            init_action=DEFECT,
             window=5,
             threshold=129,
             comparison_mode=COUNT_MODE_RATIO,
             cooperate_if_ge=True,
         ),
         "HARD_GO_BY_MAJORITY_10": StrategyDNA.count_based(
-            init_action=COOPERATE,
+            init_action=DEFECT,
             window=10,
             threshold=129,
             comparison_mode=COUNT_MODE_RATIO,
             cooperate_if_ge=True,
         ),
         "HARD_GO_BY_MAJORITY_20": StrategyDNA.count_based(
-            init_action=COOPERATE,
+            init_action=DEFECT,
             window=20,
             threshold=129,
             comparison_mode=COUNT_MODE_RATIO,
             cooperate_if_ge=True,
         ),
         "HARD_GO_BY_MAJORITY_40": StrategyDNA.count_based(
-            init_action=COOPERATE,
+            init_action=DEFECT,
             window=40,
             threshold=129,
             comparison_mode=COUNT_MODE_RATIO,

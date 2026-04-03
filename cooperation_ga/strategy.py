@@ -42,6 +42,35 @@ class ScriptedState:
     next_retaliation_length: int = 1
 
 
+@dataclass(slots=True)
+class APavlovState:
+    """Runtime state for Adaptive Pavlov variants."""
+
+    opponent_class: str | None = None
+
+
+@dataclass(slots=True)
+class AdaptiveState:
+    """Runtime state for Adaptive."""
+
+    score_c: int = 0
+    score_d: int = 0
+
+
+@dataclass(slots=True)
+class AdaptorState:
+    """Runtime state for Adaptor variants."""
+
+    s: float = 0.0
+
+
+@dataclass(slots=True)
+class FsmState:
+    """Explicit runtime state for finite state machine strategies."""
+
+    current_state: int
+
+
 class GrimTriggerState(TypedDict):
     """Explicit runtime state for Grim Trigger."""
 
@@ -57,11 +86,19 @@ class DnaStrategy:
     def initial_state(self) -> object | None:
         """Return the initial runtime state for the DNA family."""
         family = self.dna.family_name()
-        if family in {"LOOKUP", "TRIGGER", "COUNT_BASED", "PROBABILISTIC_LOOKUP", "FSM"}:
+        if family in {"LOOKUP", "TRIGGER", "COUNT_BASED", "PROBABILISTIC_LOOKUP"}:
             return None
+        if family == "FSM":
+            return FsmState(current_state=self.dna.fsm_initial_state())
         if family == "SCRIPTED":
             if self.dna.script_name() == "SHUBIK":
                 return ScriptedState(turns_played=0, retaliation_remaining=0, next_retaliation_length=1)
+            if self.dna.script_name() in {"APAVLOV2006", "APAVLOV2011"}:
+                return APavlovState()
+            if self.dna.script_name() == "ADAPTIVE":
+                return AdaptiveState()
+            if self.dna.script_name() in {"ADAPTOR_BRIEF", "ADAPTOR_LONG"}:
+                return AdaptorState()
             return ScriptedState()
         if family == "COUNTER_TRIGGER":
             base = max(1, self.dna.counter_trigger_base_punishment_length())
@@ -79,23 +116,54 @@ class DnaStrategy:
         family = self.dna.family_name()
         if family == "LOOKUP":
             return (
-                self._resolve_action(self.dna.action_for_history(own_history, opp_history), 0.5, rng),
+                self._resolve_action(
+                    self.dna.action_for_history(own_history, opp_history),
+                    self.dna.lookup_random_action_probability(),
+                    rng,
+                ),
                 state,
             )
         if family == "TRIGGER":
-            return self._resolve_action(self._trigger_move(own_history, opp_history, rng), 0.5, rng), state
+            return (
+                self._resolve_action(
+                    self._trigger_move(own_history, opp_history, rng),
+                    self.dna.trigger_random_action_probability(),
+                    rng,
+                ),
+                state,
+            )
         if family == "COUNT_BASED":
-            return self._resolve_action(self._count_based_move(opp_history), 0.5, rng), state
+            return (
+                self._resolve_action(
+                    self._count_based_move(opp_history),
+                    self.dna.count_based_random_action_probability(),
+                    rng,
+                ),
+                state,
+            )
         if family == "PROBABILISTIC_LOOKUP":
             probability = self.dna.probability_for_history(own_history, opp_history)
+            if not own_history:
+                if probability <= 0.0:
+                    return DEFECT, state
+                if probability >= 1.0:
+                    return COOPERATE, state
             return COOPERATE if rng.random() < probability else DEFECT, state
         if family == "FSM":
-            return self._resolve_action(self.dna.fsm_action_for_history(opp_history), 0.5, rng), state
+            action, new_state = self._fsm_move(opp_history, state)
+            return self._resolve_action(action, self.dna.fsm_random_action_probability(), rng), new_state
         if family == "SCRIPTED":
             return self._scripted_move(own_history, opp_history, rng, state)
         if family == "COUNTER_TRIGGER":
             action, new_state = self._counter_trigger_move(own_history, opp_history, state)
-            return self._resolve_action(action, 0.5, rng), new_state
+            return (
+                self._resolve_action(
+                    action,
+                    self.dna.counter_trigger_random_action_probability(),
+                    rng,
+                ),
+                new_state,
+            )
         raise ValueError(f"Unsupported DNA family: {family}")
 
     @staticmethod
@@ -136,6 +204,20 @@ class DnaStrategy:
             condition = not condition
         return COOPERATE if condition else DEFECT
 
+    def _fsm_move(self, opp_history: list[int], state: object | None) -> tuple[int, object | None]:
+        """Advance an FSM using explicit runtime state rather than replaying full history."""
+        if not opp_history:
+            current = state if isinstance(state, FsmState) else FsmState(current_state=self.dna.fsm_initial_state())
+            return self.dna.fsm_init_action(), current
+        transitions = self.dna.fsm_transitions()
+        current_state = self.dna.fsm_initial_state()
+        for prior_opponent_action in opp_history[:-1]:
+            transition_index = current_state * 2 + (0 if prior_opponent_action == COOPERATE else 1)
+            _action, current_state = transitions[transition_index]
+        transition_index = current_state * 2 + (0 if opp_history[-1] == COOPERATE else 1)
+        action, next_state = transitions[transition_index]
+        return action, FsmState(current_state=next_state)
+
     def _scripted_move(
         self,
         own_history: list[int],
@@ -149,12 +231,34 @@ class DnaStrategy:
             return self._nydegger_move(own_history, opp_history), state
         if script_name == "SHUBIK":
             current = state if isinstance(state, ScriptedState) else ScriptedState()
-            action, new_state = self._shubik_move(opp_history, current)
+            action, new_state = self._shubik_move(own_history, opp_history, current)
             return action, new_state
         if script_name == "CHAMPION":
             return self._champion_move(opp_history, rng), state
         if script_name == "TULLOCK":
             return self._tullock_move(opp_history, rng), state
+        if script_name == "CYCLER_CCCCCD":
+            return self._cycler_cccccd_move(own_history), state
+        if script_name == "PROBER":
+            return self._prober_move(opp_history), state
+        if script_name == "ADAPTIVE":
+            current = state if isinstance(state, AdaptiveState) else AdaptiveState()
+            action, new_state = self._adaptive_move(own_history, opp_history, current)
+            return action, new_state
+        if script_name == "APAVLOV2006":
+            current = state if isinstance(state, APavlovState) else APavlovState()
+            return self._apavlov2006_move(opp_history, current), current
+        if script_name == "APAVLOV2011":
+            current = state if isinstance(state, APavlovState) else APavlovState()
+            return self._apavlov2011_move(opp_history, current), current
+        if script_name == "SECOND_BY_GROFMAN":
+            return self._second_by_grofman_move(own_history, opp_history), state
+        if script_name == "ADAPTOR_BRIEF":
+            current = state if isinstance(state, AdaptorState) else AdaptorState()
+            return self._adaptor_move(own_history, opp_history, current, brief=True, rng=rng)
+        if script_name == "ADAPTOR_LONG":
+            current = state if isinstance(state, AdaptorState) else AdaptorState()
+            return self._adaptor_move(own_history, opp_history, current, brief=False, rng=rng)
         raise ValueError(f"Unsupported scripted strategy: {script_name}")
 
     def _nydegger_move(self, own_history: list[int], opp_history: list[int]) -> int:
@@ -186,7 +290,11 @@ class DnaStrategy:
         return mapping[(own_move, opp_move)]
 
     @staticmethod
-    def _shubik_move(opp_history: list[int], state: ScriptedState) -> tuple[int, ScriptedState]:
+    def _shubik_move(
+        own_history: list[int],
+        opp_history: list[int],
+        state: ScriptedState,
+    ) -> tuple[int, ScriptedState]:
         """Implement Shubik with explicit runtime state."""
         current = ScriptedState(
             turns_played=state.turns_played,
@@ -199,7 +307,7 @@ class DnaStrategy:
         if current.retaliation_remaining > 0:
             current.retaliation_remaining -= 1
             action = DEFECT
-        elif opp_history[-1] == DEFECT:
+        elif opp_history[-1] == DEFECT and own_history[-1] == COOPERATE:
             current.retaliation_remaining = current.next_retaliation_length - 1
             current.next_retaliation_length += 1
             action = DEFECT
@@ -216,12 +324,8 @@ class DnaStrategy:
             return COOPERATE
         if turn <= 25:
             return COOPERATE if not opp_history or opp_history[-1] == COOPERATE else DEFECT
-        opponent_cooperation_rate = sum(move == COOPERATE for move in opp_history) / len(opp_history)
-        if (
-            opp_history[-1] == DEFECT
-            and opponent_cooperation_rate < 0.6
-            and rng.random() > opponent_cooperation_rate
-        ):
+        opponent_defection_rate = sum(move == DEFECT for move in opp_history) / len(opp_history)
+        if opp_history[-1] == DEFECT and opponent_defection_rate >= max(0.4, rng.random()):
             return DEFECT
         return COOPERATE
 
@@ -235,6 +339,148 @@ class DnaStrategy:
         opponent_cooperation_rate = sum(move == COOPERATE for move in recent_window) / len(recent_window)
         cooperation_probability = max(0.0, min(1.0, opponent_cooperation_rate - 0.1))
         return COOPERATE if rng.random() < cooperation_probability else DEFECT
+
+    @staticmethod
+    def _cycler_cccccd_move(own_history: list[int]) -> int:
+        """Implement the exact periodic sequence CCCCCD."""
+        cycle = (COOPERATE, COOPERATE, COOPERATE, COOPERATE, COOPERATE, DEFECT)
+        return cycle[len(own_history) % len(cycle)]
+
+    @staticmethod
+    def _prober_move(opp_history: list[int]) -> int:
+        """Implement Prober exactly."""
+        turn = len(opp_history)
+        if turn == 0:
+            return DEFECT
+        if turn in {1, 2}:
+            return COOPERATE
+        if opp_history[1:3] == [COOPERATE, COOPERATE]:
+            return DEFECT
+        return DEFECT if opp_history[-1] == DEFECT else COOPERATE
+
+    @staticmethod
+    def _adaptive_move(
+        own_history: list[int],
+        opp_history: list[int],
+        state: AdaptiveState,
+    ) -> tuple[int, AdaptiveState]:
+        """Implement Adaptive using the default payoff matrix scoring rule."""
+        current = AdaptiveState(score_c=state.score_c, score_d=state.score_d)
+        if own_history:
+            own_last = own_history[-1]
+            opp_last = opp_history[-1]
+            if own_last == COOPERATE and opp_last == COOPERATE:
+                current.score_c += 3
+            elif own_last == COOPERATE and opp_last == DEFECT:
+                current.score_c += 0
+            elif own_last == DEFECT and opp_last == COOPERATE:
+                current.score_d += 5
+            else:
+                current.score_d += 1
+        opening = [COOPERATE] * 6 + [DEFECT] * 5
+        if len(own_history) < len(opening):
+            return opening[len(own_history)], current
+        return (COOPERATE if current.score_c > current.score_d else DEFECT), current
+
+    @staticmethod
+    def _apavlov2006_move(opp_history: list[int], state: APavlovState) -> int:
+        """Implement Adaptive Pavlov 2006 exactly."""
+        turn = len(opp_history)
+        if turn < 6:
+            return DEFECT if opp_history[-1:] == [DEFECT] else COOPERATE
+        if turn % 6 == 0:
+            if opp_history[-6:] == [COOPERATE] * 6:
+                state.opponent_class = "Cooperative"
+            elif opp_history[-6:] == [DEFECT] * 6:
+                state.opponent_class = "ALLD"
+            elif opp_history[-6:] == [DEFECT, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE]:
+                state.opponent_class = "STFT"
+            elif opp_history[-6:] == [DEFECT, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE]:
+                state.opponent_class = "PavlovD"
+            else:
+                state.opponent_class = "Random"
+        if state.opponent_class in {"Random", "ALLD"}:
+            return DEFECT
+        if state.opponent_class == "STFT":
+            if turn % 6 in {0, 1}:
+                return COOPERATE
+            return DEFECT if opp_history[-1] == DEFECT else COOPERATE
+        if state.opponent_class == "PavlovD":
+            if turn % 6 == 0:
+                return DEFECT
+        if state.opponent_class == "Cooperative" and opp_history[-1:] == [DEFECT]:
+            return DEFECT
+        return COOPERATE
+
+    @staticmethod
+    def _apavlov2011_move(opp_history: list[int], state: APavlovState) -> int:
+        """Implement Adaptive Pavlov 2011 exactly."""
+        turn = len(opp_history)
+        if turn < 6:
+            return DEFECT if opp_history[-1:] == [DEFECT] else COOPERATE
+        if turn % 6 == 0:
+            recent = opp_history[-6:]
+            if recent == [COOPERATE] * 6:
+                state.opponent_class = "Cooperative"
+            elif recent.count(DEFECT) >= 4:
+                state.opponent_class = "ALLD"
+            elif recent.count(DEFECT) == 3:
+                state.opponent_class = "STFT"
+            else:
+                state.opponent_class = "Random"
+        if state.opponent_class in {"Random", "ALLD"}:
+            return DEFECT
+        if state.opponent_class == "STFT":
+            return DEFECT if opp_history[-2:] == [DEFECT, DEFECT] else COOPERATE
+        return DEFECT if opp_history[-1:] == [DEFECT] else COOPERATE
+
+    @staticmethod
+    def _second_by_grofman_move(own_history: list[int], opp_history: list[int]) -> int:
+        """Implement SecondByGrofman exactly."""
+        turn = len(own_history)
+        if turn < 2:
+            return COOPERATE
+        if 2 <= turn <= 6:
+            return opp_history[-1]
+        opponent_defections_last_window = opp_history[-8:-1].count(DEFECT)
+        if own_history[-1] == COOPERATE and opponent_defections_last_window <= 2:
+            return COOPERATE
+        if own_history[-1] == DEFECT and opponent_defections_last_window <= 1:
+            return COOPERATE
+        return DEFECT
+
+    @staticmethod
+    def _adaptor_move(
+        own_history: list[int],
+        opp_history: list[int],
+        state: AdaptorState,
+        brief: bool,
+        rng: Random,
+    ) -> tuple[int, AdaptorState]:
+        """Implement Adaptor variants exactly."""
+        current = AdaptorState(s=state.s)
+        if own_history:
+            last_round = (own_history[-1], opp_history[-1])
+            if brief:
+                delta = {
+                    (COOPERATE, COOPERATE): 0.0,
+                    (COOPERATE, DEFECT): -1.001505,
+                    (DEFECT, COOPERATE): 0.992107,
+                    (DEFECT, DEFECT): -0.638734,
+                }
+            else:
+                delta = {
+                    (COOPERATE, COOPERATE): 0.0,
+                    (COOPERATE, DEFECT): 1.888159,
+                    (DEFECT, COOPERATE): 1.858883,
+                    (DEFECT, DEFECT): -0.995703,
+                }
+            current.s += delta[last_round]
+        perr = 0.01
+        heaviside_plus = 1.0 if current.s >= -1 else 0.0
+        heaviside_minus = 1.0 if current.s >= 1 else 0.0
+        probability = perr + (1.0 - 2 * perr) * (heaviside_plus - heaviside_minus)
+        return (COOPERATE if rng.random() < probability else DEFECT), current
 
     def _counter_trigger_move(
         self,

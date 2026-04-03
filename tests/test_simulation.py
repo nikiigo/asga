@@ -13,9 +13,11 @@ from pathlib import Path
 from random import Random
 import sys
 import types
+from unittest.mock import patch
 from typing import TypedDict
 import unittest
 
+import main as cli_main
 from cooperation_ga.config import SimulationConfig, VisualizationConfig
 from cooperation_ga.axelrod_mapping import axelrod_strategy_mappings
 from cooperation_ga.dna import (
@@ -493,6 +495,30 @@ class DnaTests(unittest.TestCase):
             visualization.output_dir,
             "sample_output_1000_all_strategies_20_render_static",
         )
+
+    def test_cli_uses_visualization_defaults_from_simulation_config_when_render_config_is_omitted(self) -> None:
+        config_path = Path("test_output_visuals/cli_simulation_only_config.json")
+        output_dir = Path("test_output_visuals/cli_simulation_only_output")
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(
+            """{
+  "num_steps": 1,
+  "initial_population_size": 12,
+  "initial_num_strategies": 3,
+  "output_dir": "test_output_visuals/cli_simulation_only_output",
+  "export_csv": false,
+  "export_json": false,
+  "export_visuals": false
+}""",
+            encoding="utf-8",
+        )
+        stdout = StringIO()
+        with patch.object(sys, "argv", ["main.py", "--config", str(config_path)]):
+            with redirect_stdout(stdout):
+                cli_main.main()
+        self.assertIn("Starting simulation for 1 steps.", stdout.getvalue())
+        status = json.loads((output_dir / "status.txt").read_text(encoding="utf-8"))
+        self.assertEqual(status["phase"], "done")
 
 
 class StrategyTests(unittest.TestCase):

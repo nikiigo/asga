@@ -37,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--render-config",
         type=Path,
         default=None,
-        help="Optional JSON file with visualization-only settings. Defaults to --config.",
+        help="Optional JSON file with visualization-only settings. Defaults to visualization settings derived from --config.",
     )
     parser.add_argument(
         "--verbose",
@@ -70,8 +70,10 @@ def main() -> None:
         config.trace = True
         config.debug = True
         config.verbose = True
-    render_config_path = args.render_config or args.config
-    visualization_config = VisualizationConfig.from_json(render_config_path)
+    if args.render_config is not None:
+        visualization_config = VisualizationConfig.from_json(args.render_config)
+    else:
+        visualization_config = VisualizationConfig.from_simulation_config(config)
     if args.render_from_metrics is not None:
         from cooperation_ga.visualization import export_visualizations
 

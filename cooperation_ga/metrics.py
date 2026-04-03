@@ -43,7 +43,8 @@ class GenerationMetrics:
 class PreparedExportData:
     """Precomputed export rows and labels shared by multiple exporters."""
 
-    metric_rows: list[dict[str, Any]]
+    metric_csv_rows: list[dict[str, Any]]
+    metric_json_rows: list[dict[str, Any]]
     strategy_names: dict[str, str]
     population_breakdown_rows: list[PopulationBreakdownRow]
     final_population_rows: list[FinalPopulationSummaryRow]
@@ -131,14 +132,14 @@ def export_metrics_csv(
 ) -> None:
     """Write metrics to CSV format."""
     prepared = prepared_export or prepare_export_data(metrics)
-    if not prepared.metric_rows:
+    if not prepared.metric_csv_rows:
         return
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with destination.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(prepared.metric_rows[0].keys()))
+        writer = csv.DictWriter(handle, fieldnames=list(prepared.metric_csv_rows[0].keys()))
         writer.writeheader()
-        writer.writerows(prepared.metric_rows)
+        writer.writerows(prepared.metric_csv_rows)
 
 
 def export_metrics_json(
@@ -150,7 +151,7 @@ def export_metrics_json(
     prepared = prepared_export or prepare_export_data(metrics)
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(json.dumps(prepared.metric_rows, indent=2), encoding="utf-8")
+    destination.write_text(json.dumps(prepared.metric_json_rows, indent=2), encoding="utf-8")
 
 
 def load_metrics_json(path: str | Path) -> list[GenerationMetrics]:
@@ -160,7 +161,16 @@ def load_metrics_json(path: str | Path) -> list[GenerationMetrics]:
         raise ValueError("Metrics JSON must contain a top-level list.")
     if not all(isinstance(item, dict) for item in raw):
         raise ValueError("Metrics JSON list items must be objects.")
-    return [GenerationMetrics(**item) for item in raw]
+    loaded: list[GenerationMetrics] = []
+    for item in raw:
+        population_count = item.get("population_count_per_dna")
+        if isinstance(population_count, str):
+            item["population_count_per_dna"] = json.loads(population_count)
+        score_distribution = item.get("score_distribution")
+        if isinstance(score_distribution, str):
+            item["score_distribution"] = json.loads(score_distribution)
+        loaded.append(GenerationMetrics(**item))
+    return loaded
 
 
 def export_population_breakdown_csv(
@@ -231,7 +241,7 @@ def _score_distribution(scores: list[float]) -> dict[str, int]:
 
 
 def _metric_row(metric: GenerationMetrics) -> dict[str, Any]:
-    """Build one shallow serializable metrics row."""
+    """Build one shallow serializable metrics CSV row."""
     return {
         "step": metric.step,
         "total_population_size": metric.total_population_size,
@@ -243,6 +253,32 @@ def _metric_row(metric: GenerationMetrics) -> dict[str, Any]:
         "best_score": metric.best_score,
         "worst_score": metric.worst_score,
         "score_distribution": json.dumps(metric.score_distribution, sort_keys=True),
+        "overall_cooperation_rate": metric.overall_cooperation_rate,
+        "overall_defection_rate": metric.overall_defection_rate,
+        "diversity_entropy": metric.diversity_entropy,
+        "dominant_strategy_share": metric.dominant_strategy_share,
+        "matches_played": metric.matches_played,
+        "deaths_this_step": metric.deaths_this_step,
+        "births_this_step": metric.births_this_step,
+        "reproduction_step": metric.reproduction_step,
+        "mutation_count": metric.mutation_count,
+        "crossover_count": metric.crossover_count,
+    }
+
+
+def _metric_json_row(metric: GenerationMetrics) -> dict[str, Any]:
+    """Build one shallow serializable metrics JSON row."""
+    return {
+        "step": metric.step,
+        "total_population_size": metric.total_population_size,
+        "num_unique_strategies": metric.num_unique_strategies,
+        "population_count_per_dna": dict(metric.population_count_per_dna),
+        "dominant_dna": metric.dominant_dna,
+        "dominant_group_size": metric.dominant_group_size,
+        "average_score": metric.average_score,
+        "best_score": metric.best_score,
+        "worst_score": metric.worst_score,
+        "score_distribution": dict(metric.score_distribution),
         "overall_cooperation_rate": metric.overall_cooperation_rate,
         "overall_defection_rate": metric.overall_defection_rate,
         "diversity_entropy": metric.diversity_entropy,
@@ -302,7 +338,8 @@ def prepare_export_data(metrics: list[GenerationMetrics]) -> PreparedExportData:
         ]
 
     return PreparedExportData(
-        metric_rows=[_metric_row(metric) for metric in metrics],
+        metric_csv_rows=[_metric_row(metric) for metric in metrics],
+        metric_json_rows=[_metric_json_row(metric) for metric in metrics],
         strategy_names=strategy_names,
         population_breakdown_rows=breakdown_rows,
         final_population_rows=final_rows,

@@ -31,7 +31,13 @@ from cooperation_ga.dna import (
 )
 from cooperation_ga.evolution import EvolutionEngine
 from cooperation_ga.game import PayoffMatrix, simulate_match
-from cooperation_ga.metrics import GenerationMetrics, final_population_summary_rows, load_metrics_json, strategy_name_by_dna
+from cooperation_ga.metrics import (
+    GenerationMetrics,
+    export_metrics_json,
+    final_population_summary_rows,
+    load_metrics_json,
+    strategy_name_by_dna,
+)
 from cooperation_ga.population import Population
 from cooperation_ga.strategy import DnaStrategy, GrimTriggerStrategy, ParticipantSpec, RandomStrategy
 from cooperation_ga.tournament import run_interactions
@@ -418,6 +424,35 @@ class DnaTests(unittest.TestCase):
             '"mutation_count": 0, "crossover_count": 0}]',
             encoding="utf-8",
         )
+        loaded = load_metrics_json(path)
+        self.assertEqual(loaded, [metric])
+
+    def test_exported_metrics_json_roundtrip_loads_generation_metrics(self) -> None:
+        metric = GenerationMetrics(
+            step=1,
+            total_population_size=3,
+            num_unique_strategies=1,
+            population_count_per_dna={baseline_dna_library()["ALLC"].to_string(): 3},
+            dominant_dna=baseline_dna_library()["ALLC"].to_string(),
+            dominant_group_size=3,
+            average_score=1.0,
+            best_score=1.0,
+            worst_score=1.0,
+            score_distribution={"1": 3},
+            overall_cooperation_rate=1.0,
+            overall_defection_rate=0.0,
+            diversity_entropy=0.0,
+            dominant_strategy_share=1.0,
+            matches_played=1,
+            deaths_this_step=0,
+            births_this_step=0,
+            reproduction_step=False,
+            mutation_count=0,
+            crossover_count=0,
+        )
+        path = Path("test_output_visuals/exported_metrics_roundtrip.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        export_metrics_json([metric], path)
         loaded = load_metrics_json(path)
         self.assertEqual(loaded, [metric])
 

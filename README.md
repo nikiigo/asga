@@ -372,6 +372,15 @@ These files are visualization-ready and include:
 
 The primary success criterion is population spread: the winning strategy is the DNA group with the largest number of living agents at the final step.
 
+Plain-language guide to the report graphs:
+
+- `Run Overview`: shows how cooperation, defection, births, deaths, diversity, and dominant-share changed over time
+- `Strategy Landscape`: shows how the largest strategies split the population over time; thicker areas mean more agents
+- `Final Population Ranking`: shows which strategies are largest at the last step
+- `Hybrid Emergence`: shows when new non-baseline strategies appeared and how much of the population is hybrid versus baseline
+- `Final Strategy Catalog`: lists each surviving strategy with its population, raw DNA, and explanation
+- interpretation rule: individual score controls survival and reproduction, while DNA-group population size determines the dominant strategy
+
 For long runs, a practical workflow is:
 
 1. run a fast config with `export_visuals: false`

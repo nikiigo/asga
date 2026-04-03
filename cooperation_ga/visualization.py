@@ -427,6 +427,26 @@ def _create_html_report(
       color: var(--muted);
       margin-top: 10px;
     }}
+    .guide {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }}
+    .guide-item {{
+      background: rgba(255,255,255,0.4);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }}
+    .guide-item h3 {{
+      margin: 0 0 8px;
+      font-size: 16px;
+    }}
+    .guide-item p {{
+      margin: 0;
+      font-size: 14px;
+      max-width: none;
+    }}
     @media (max-width: 980px) {{
       .hero, .grid.two, .media {{
         grid-template-columns: 1fr;
@@ -460,6 +480,17 @@ def _create_html_report(
       </div>
     </section>
     <section class="grid">
+      <div class="panel">
+        <h2>How To Read This Report</h2>
+        <div class="guide">
+          <div class="guide-item"><h3>Run Overview</h3><p>Shows how cooperation, defection, births, deaths, diversity, and dominant-share changed over time. Rising cooperation means the population is acting more cooperatively; rising dominant share means one DNA group is taking control.</p></div>
+          <div class="guide-item"><h3>Strategy Landscape</h3><p>Shows how population is divided among the largest strategies through time. A thicker band means that strategy has more living agents. Growing bands indicate spreading strategies.</p></div>
+          <div class="guide-item"><h3>Final Population Ranking</h3><p>Shows the largest surviving strategies at the last step. This is the simplest view of who finished on top by population size.</p></div>
+          <div class="guide-item"><h3>Hybrid Emergence</h3><p>Shows when new non-baseline DNA strategies appeared and how much of the population is made of hybrids versus named baseline strategies.</p></div>
+          <div class="guide-item"><h3>Final Strategy Catalog</h3><p>Lists each surviving strategy with its population, raw DNA, and a plain-language explanation. Use it to understand what the final lineages actually do.</p></div>
+          <div class="guide-item"><h3>Interpretation Rule</h3><p>Individual score decides which agents survive and reproduce. Population size by identical DNA decides which strategy is dominant or wins the run.</p></div>
+        </div>
+      </div>
       <div class="panel">
         <h2>Run Overview</h2>
         {overview_fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})}

@@ -214,6 +214,23 @@ def _load_reference_module(module_name: str, path: str) -> types.ModuleType:
     return module
 
 
+def _reference_strategy_path(relative_path: str) -> str:
+    """Resolve a reference Axelrod source file relative to the active interpreter."""
+    try:
+        spec = importlib.util.find_spec("axelrod")
+    except ValueError:
+        spec = None
+    if spec is not None and spec.submodule_search_locations:
+        candidate = Path(next(iter(spec.submodule_search_locations))) / relative_path
+        if candidate.exists():
+            return str(candidate)
+    repo_root = Path(__file__).resolve().parent.parent
+    candidates = sorted(repo_root.glob(f".venv/lib/python*/site-packages/axelrod/{relative_path}"))
+    if candidates:
+        return str(candidates[0])
+    raise RuntimeError(f"Could not locate reference strategy file: {relative_path}")
+
+
 def _load_reference_class(module: types.ModuleType, class_name: str) -> type[_RefPlayer]:
     reference_cls = getattr(module, class_name, None)
     if reference_cls is None or not isinstance(reference_cls, type):
@@ -803,18 +820,18 @@ class StrategyTests(unittest.TestCase):
     def test_reference_joss_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.axelrod_first",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_first.py",
+            _reference_strategy_path("strategies/axelrod_first.py"),
         )
         self._assert_matches_reference("JOSS", _load_reference_class(module, "FirstByJoss"), [COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, DEFECT], seed=7)
 
     def test_reference_cooperator_and_defector_match_axelrod_source(self) -> None:
         cooperator_module = _load_reference_module(
             "axelrod.strategies.cooperator",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/cooperator.py",
+            _reference_strategy_path("strategies/cooperator.py"),
         )
         defector_module = _load_reference_module(
             "axelrod.strategies.defector",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/defector.py",
+            _reference_strategy_path("strategies/defector.py"),
         )
         opponent_moves = [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE]
         self._assert_matches_reference("ALLC", _load_reference_class(cooperator_module, "Cooperator"), opponent_moves)
@@ -823,7 +840,7 @@ class StrategyTests(unittest.TestCase):
     def test_reference_tft_family_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.titfortat",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/titfortat.py",
+            _reference_strategy_path("strategies/titfortat.py"),
         )
         opponent_moves = [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE]
         self._assert_matches_reference("TFT", _load_reference_class(module, "TitForTat"), opponent_moves)
@@ -833,35 +850,35 @@ class StrategyTests(unittest.TestCase):
     def test_reference_nydegger_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.axelrod_first",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_first.py",
+            _reference_strategy_path("strategies/axelrod_first.py"),
         )
         self._assert_matches_reference("NYDEGGER", _load_reference_class(module, "FirstByNydegger"), [DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT])
 
     def test_reference_shubik_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.axelrod_first",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_first.py",
+            _reference_strategy_path("strategies/axelrod_first.py"),
         )
         self._assert_matches_reference("SHUBIK", _load_reference_class(module, "FirstByShubik"), [DEFECT, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT])
 
     def test_reference_tullock_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.axelrod_first",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_first.py",
+            _reference_strategy_path("strategies/axelrod_first.py"),
         )
         self._assert_matches_reference("TULLOCK", _load_reference_class(module, "FirstByTullock"), [COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE, COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE], seed=11)
 
     def test_reference_champion_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.axelrod_second",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_second.py",
+            _reference_strategy_path("strategies/axelrod_second.py"),
         )
         self._assert_matches_reference("CHAMPION", _load_reference_class(module, "SecondByChampion"), [COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE], seed=13)
 
     def test_reference_go_by_majority_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.gobymajority",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/gobymajority.py",
+            _reference_strategy_path("strategies/gobymajority.py"),
         )
         self._assert_matches_reference("GO_BY_MAJORITY", _load_reference_class(module, "GoByMajority"), [COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT])
         self._assert_matches_reference("HARD_GO_BY_MAJORITY", _load_reference_class(module, "HardGoByMajority"), [COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT])
@@ -869,42 +886,42 @@ class StrategyTests(unittest.TestCase):
     def test_reference_grudger_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.grudger",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/grudger.py",
+            _reference_strategy_path("strategies/grudger.py"),
         )
         self._assert_matches_reference("GRUDGER", _load_reference_class(module, "Grudger"), [COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE])
 
     def test_reference_appeaser_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.appeaser",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/appeaser.py",
+            _reference_strategy_path("strategies/appeaser.py"),
         )
         self._assert_matches_reference("APPEASER", _load_reference_class(module, "Appeaser"), [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE])
 
     def test_reference_alternator_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.alternator",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/alternator.py",
+            _reference_strategy_path("strategies/alternator.py"),
         )
         self._assert_matches_reference("ALTERNATOR", _load_reference_class(module, "Alternator"), [COOPERATE, COOPERATE, DEFECT, DEFECT, COOPERATE, DEFECT])
 
     def test_reference_pavlov_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.memoryone_reference",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/memoryone.py",
+            _reference_strategy_path("strategies/memoryone.py"),
         )
         self._assert_matches_reference("PAVLOV", _load_reference_class(module, "WinStayLoseShift"), [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE], setup_reference=True)
 
     def test_reference_random_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.rand",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/rand.py",
+            _reference_strategy_path("strategies/rand.py"),
         )
         self._assert_matches_reference("RANDOM", _load_reference_class(module, "Random"), [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE], seed=19)
 
     def test_reference_cyclers_match_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.cycler",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/cycler.py",
+            _reference_strategy_path("strategies/cycler.py"),
         )
         self._assert_matches_reference("CYCLER_CCD", _load_reference_class(module, "CyclerCCD"), [COOPERATE] * 8)
         self._assert_matches_reference("CYCLER_CCCD", _load_reference_class(module, "CyclerCCCD"), [COOPERATE] * 8)
@@ -913,28 +930,28 @@ class StrategyTests(unittest.TestCase):
     def test_reference_gtft_matches_axelrod_source_under_default_payoffs(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.memoryone_reference",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/memoryone.py",
+            _reference_strategy_path("strategies/memoryone.py"),
         )
         self._assert_matches_reference("GTFT", _load_reference_class(module, "GTFT"), [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE], seed=17, setup_reference=True)
 
     def test_reference_prober_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.prober",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/prober.py",
+            _reference_strategy_path("strategies/prober.py"),
         )
         self._assert_matches_reference("PROBER", _load_reference_class(module, "Prober"), [COOPERATE, COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT])
 
     def test_reference_adaptive_matches_axelrod_source_under_default_payoffs(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.adaptive",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/adaptive.py",
+            _reference_strategy_path("strategies/adaptive.py"),
         )
         self._assert_matches_reference("ADAPTIVE", _load_reference_class(module, "Adaptive"), [COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE])
 
     def test_reference_apavlov_variants_match_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.apavlov",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/apavlov.py",
+            _reference_strategy_path("strategies/apavlov.py"),
         )
         opponent_moves = [COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, COOPERATE, COOPERATE, COOPERATE, COOPERATE]
         self._assert_matches_reference("APAVLOV2006", _load_reference_class(module, "APavlov2006"), opponent_moves)
@@ -943,14 +960,14 @@ class StrategyTests(unittest.TestCase):
     def test_reference_second_by_grofman_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.axelrod_second",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_second.py",
+            _reference_strategy_path("strategies/axelrod_second.py"),
         )
         self._assert_matches_reference("SECOND_BY_GROFMAN", _load_reference_class(module, "SecondByGrofman"), [COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, DEFECT])
 
     def test_reference_adaptor_variants_match_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.adaptor",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/adaptor.py",
+            _reference_strategy_path("strategies/adaptor.py"),
         )
         opponent_moves = [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT]
         self._assert_matches_reference("ADAPTOR_BRIEF", _load_reference_class(module, "AdaptorBrief"), opponent_moves, seed=23)
@@ -959,7 +976,7 @@ class StrategyTests(unittest.TestCase):
     def test_reference_evolved_ann_variants_match_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.ann",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/ann.py",
+            _reference_strategy_path("strategies/ann.py"),
         )
         opponent_moves = [COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE]
         self._assert_matches_reference("EVOLVED_ANN", _load_reference_class(module, "EvolvedANN"), opponent_moves)
@@ -969,7 +986,7 @@ class StrategyTests(unittest.TestCase):
     def test_reference_stein_and_rapoport_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.axelrod_first",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_first.py",
+            _reference_strategy_path("strategies/axelrod_first.py"),
         )
         opponent_moves = [COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, DEFECT, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE]
         self._assert_matches_reference("FIRST_BY_STEIN_AND_RAPOPORT", _load_reference_class(module, "FirstBySteinAndRapoport"), opponent_moves)
@@ -977,7 +994,7 @@ class StrategyTests(unittest.TestCase):
     def test_reference_tideman_and_chieruzzi_matches_axelrod_source(self) -> None:
         module = _load_reference_module(
             "axelrod.strategies.axelrod_first",
-            ".venv/lib/python3.14/site-packages/axelrod/strategies/axelrod_first.py",
+            _reference_strategy_path("strategies/axelrod_first.py"),
         )
         opponent_moves = [COOPERATE, DEFECT, DEFECT, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT, DEFECT, COOPERATE, COOPERATE, DEFECT, COOPERATE, COOPERATE, DEFECT]
         self._assert_matches_reference("FIRST_BY_TIDEMAN_AND_CHIERUZZI", _load_reference_class(module, "FirstByTidemanAndChieruzzi"), opponent_moves)

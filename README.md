@@ -24,6 +24,8 @@ Action encoding follows the project spec:
 
 - Python 3.10+ acceptable
 - Python 3.11+ preferred
+- runtime dependencies are listed in `requirements.txt`
+- reference-verification test dependencies are listed in `requirements-dev.txt`
 
 ## Usage
 
@@ -63,6 +65,12 @@ Run tests with the standard library runner:
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
+```
+
+If you want to run the Axelrod reference-verification tests, install the development dependency too:
+
+```bash
+.venv/bin/pip install -r requirements-dev.txt
 ```
 
 ## Implemented Features
@@ -116,7 +124,7 @@ Every genome is stored as a raw bit string. The common header is:
 | --- | --- | --- |
 | `VERSION` | 3 | DNA format version |
 | `FAMILY` | 5 | Strategy family identifier |
-| `PAYLOAD_LENGTH` | 8 | Length of the family-specific payload |
+| `PAYLOAD_LENGTH` | 16 | Length of the family-specific payload |
 | `PAYLOAD` | variable | Parameters for the selected strategy family |
 
 Implemented DNA families and payload meaning:

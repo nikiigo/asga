@@ -1059,6 +1059,9 @@ def load_axelrod_ann_weights() -> dict[str, tuple[int, int, list[float]]]:
 def _find_axelrod_ann_weight_file() -> Path | None:
     """Return the local Axelrod ANN weight file if present."""
     repo_root = Path(__file__).resolve().parent.parent
+    bundled = repo_root / "cooperation_ga" / "data" / "ann_weights.csv"
+    if bundled.exists():
+        return bundled
     candidates = sorted(repo_root.glob(".venv/lib/python*/site-packages/axelrod/data/ann_weights.csv"))
     return candidates[0] if candidates else None
 

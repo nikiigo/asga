@@ -8,6 +8,8 @@ test_output_visuals/
 test_output_visuals_progress/
 test_output_status/
 test_output_visuals_no_animation/
+test_output_extinction_visuals/
+test_output_non_visual_exports/
 sample_output/
 sample_output_*/
 tmp_*_config.json

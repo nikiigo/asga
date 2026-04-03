@@ -238,7 +238,7 @@ class EvolutionEngine:
             if parent_a is None:
                 break
             available.remove(parent_a)
-            parent_b = self._sample_parent(available, forbidden_dna=None if self.config.allow_self_pairing else parent_a.dna)
+            parent_b = self._sample_parent(available)
             if parent_b is None:
                 available.append(parent_a)
                 break
@@ -316,9 +316,9 @@ class EvolutionEngine:
             return min(self.config.fixed_pairs_per_reproduction or 0, available_population // 2)
         return available_population // 2
 
-    def _sample_parent(self, candidates: list[Agent], forbidden_dna: StrategyDNA | None = None) -> Agent | None:
+    def _sample_parent(self, candidates: list[Agent]) -> Agent | None:
         """Sample one parent with probability proportional to adjusted score."""
-        eligible = [agent for agent in candidates if forbidden_dna is None or agent.dna != forbidden_dna]
+        eligible = list(candidates)
         if not eligible:
             return None
         min_score = min(agent.score for agent in eligible)

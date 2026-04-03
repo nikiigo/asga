@@ -36,8 +36,8 @@ def run_interactions(
     )
     agents = list(population.agents)
     rng.shuffle(agents)
-    total_coop = 0
-    total_defect = 0
+    total_coop = 0.0
+    total_defect = 0.0
     score_by_agent_id = {agent.id: 0.0 for agent in population.agents}
     pairwise_scores: list[tuple[int, int, MatchResult]] = []
     matches_played = 0
@@ -52,10 +52,15 @@ def run_interactions(
             config.noise_rate,
             rng,
         )
-        score_by_agent_id[agent_a.id] += match.score_a
-        score_by_agent_id[agent_b.id] += match.score_b
-        total_coop += match.coop_a + match.coop_b
-        total_defect += match.defect_a + match.defect_b
+        if agent_a.id == agent_b.id:
+            score_by_agent_id[agent_a.id] += (match.score_a + match.score_b) / 2
+            total_coop += (match.coop_a + match.coop_b) / 2
+            total_defect += (match.defect_a + match.defect_b) / 2
+        else:
+            score_by_agent_id[agent_a.id] += match.score_a
+            score_by_agent_id[agent_b.id] += match.score_b
+            total_coop += match.coop_a + match.coop_b
+            total_defect += match.defect_a + match.defect_b
         pairwise_scores.append((agent_a.id, agent_b.id, match))
         matches_played += 1
 

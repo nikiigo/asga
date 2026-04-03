@@ -1113,6 +1113,21 @@ class InteractionTests(unittest.TestCase):
         result = run_interactions(population, config, Random(0))
         self.assertEqual(result.matches_played, 3)
 
+    def test_single_agent_self_play_is_not_double_counted(self) -> None:
+        config = self._interaction_config(
+            initial_population={"ALLC": 1},
+            odd_agent_mode="self_play",
+            self_play=True,
+            rounds_per_match=4,
+        )
+        population = Population.from_mapping(config.initial_population)
+        result = run_interactions(population, config, Random(0))
+        agent = population.agents[0]
+        self.assertEqual(result.matches_played, 1)
+        self.assertEqual(result.score_by_agent_id[agent.id], 12.0)
+        self.assertEqual(result.cooperation_rate, 1.0)
+        self.assertEqual(result.defection_rate, 0.0)
+
 
 class EngineTests(unittest.TestCase):
     @staticmethod
@@ -1368,6 +1383,21 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(metric.births_this_step, 1)
         self.assertEqual(engine.population.total_size(), 1)
         self.assertTrue(all(agent.id not in parent_ids for agent in engine.population.agents))
+
+    def test_allow_self_pairing_false_still_allows_distinct_agents_with_same_dna(self) -> None:
+        config = self._engine_config(
+            num_steps=1,
+            reproduction_interval=1,
+            initial_population={"ALLC": 4},
+            death_rate=0.0,
+            mutation_genes_per_step=0.0,
+            crossover_rate=0.0,
+            allow_self_pairing=False,
+        )
+        engine = EvolutionEngine.from_config(config)
+        metric = engine.run_step(1)
+        self.assertTrue(metric.reproduction_step)
+        self.assertEqual(metric.births_this_step, 2)
 
     def test_scores_reset_after_reproduction(self) -> None:
         config = self._engine_config(

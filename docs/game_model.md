@@ -93,6 +93,15 @@ If the population size is odd, behavior depends on configuration:
 - match the leftover agent with a random opponent
 - allow self-play if configured
 
+If the leftover agent is skipped on that step:
+
+- it does not play a match
+- it gets no new score from interaction on that step
+- its existing accumulated score is kept
+- it can still be eliminated later in the step if its score is low enough
+- it can still be selected for reproduction later if its accumulated score is high enough
+- if it survives, its age still increases normally
+
 ## Score Accumulation
 
 Each agent stores its own score.

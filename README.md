@@ -324,8 +324,6 @@ The default seeded strategy list is:
 - `overflow_cull_rate`: fraction of the current population removed during an overflow cull
 - `overflow_cull_score_correlation`: how strongly overflow culling favors low-score agents, from `0.0` random to `1.0` lowest-score first
 - `selection_epsilon`: small positive weight added during parent selection so no surviving agent has zero selection probability
-- `odd_agent_mode`: what to do with one leftover unpaired agent: `skip` or `self_play`
-- `self_play`: whether an agent may be matched against itself in interaction pairing when that mode is used
 - `payoff_R`: reward payoff for mutual cooperation
 - `payoff_T`: temptation payoff for defecting against a cooperator
 - `payoff_P`: punishment payoff for mutual defection

@@ -87,10 +87,7 @@ The usual flow is:
 
 This gives each agent at most one match on a step.
 
-If the population size is odd, behavior depends on configuration:
-
-- skip the leftover agent
-- allow self-play if configured
+If the population size is odd, one leftover agent is skipped for that step.
 
 If the leftover agent is skipped on that step:
 

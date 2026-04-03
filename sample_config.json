@@ -14,8 +14,6 @@
   "overflow_cull_rate": 0.3,
   "overflow_cull_score_correlation": 0.5,
   "selection_epsilon": 1e-09,
-  "odd_agent_mode": "skip",
-  "self_play": true,
   "payoff_R": 3,
   "payoff_T": 5,
   "payoff_P": 1,

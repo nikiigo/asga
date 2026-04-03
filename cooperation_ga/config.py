@@ -112,8 +112,6 @@ class SimulationConfig:
     overflow_cull_rate: float = 0.3
     overflow_cull_score_correlation: float = 0.5
     selection_epsilon: float = 1e-9
-    odd_agent_mode: str = "skip"
-    self_play: bool = True
     payoff_R: int = 3
     payoff_T: int = 5
     payoff_P: int = 1
@@ -155,6 +153,10 @@ class SimulationConfig:
             raise ValueError("Only memory_depth=1 is currently supported.")
         if self.num_steps is None:
             self.num_steps = self.num_generations
+        if self.num_generations <= 0:
+            raise ValueError("num_generations must be positive.")
+        if self.num_steps <= 0:
+            raise ValueError("num_steps must be positive.")
         if self.initial_population_size < 0:
             raise ValueError("initial_population_size must be non-negative.")
         if self.initial_num_strategies <= 0:
@@ -186,8 +188,6 @@ class SimulationConfig:
             raise ValueError("initialization_mode must be 'random' or 'seeded'.")
         if self.selection_epsilon <= 0.0:
             raise ValueError("selection_epsilon must be positive.")
-        if self.odd_agent_mode not in {"skip", "self_play"}:
-            raise ValueError("odd_agent_mode must be 'skip' or 'self_play'.")
         if self.pairing_mode not in {"max_possible", "fixed"}:
             raise ValueError("pairing_mode must be 'max_possible' or 'fixed'.")
         if self.rating_mode not in {"current_step", "rolling_average"}:

@@ -1107,7 +1107,6 @@ class InteractionTests(unittest.TestCase):
     def test_odd_agent_mode_skip_leaves_one_agent_unmatched(self) -> None:
         config = self._interaction_config(
             initial_population={"ALLC": 5},
-            odd_agent_mode="skip",
         )
         population = Population.from_mapping(config.initial_population)
         result = run_interactions(population, config, Random(0))
@@ -1116,24 +1115,29 @@ class InteractionTests(unittest.TestCase):
         self.assertEqual(result.cooperation_rate, 1.0)
         self.assertEqual(result.defection_rate, 0.0)
 
-    def test_single_agent_self_play_is_not_double_counted(self) -> None:
-        config = self._interaction_config(
-            initial_population={"ALLC": 1},
-            odd_agent_mode="self_play",
-            self_play=True,
-            rounds_per_match=4,
-        )
+    def test_single_agent_without_pair_earns_no_score(self) -> None:
+        config = self._interaction_config(initial_population={"ALLC": 1}, rounds_per_match=4)
         population = Population.from_mapping(config.initial_population)
         result = run_interactions(population, config, Random(0))
         agent = population.agents[0]
-        self.assertEqual(result.matches_played, 1)
-        self.assertEqual(result.score_by_agent_id[agent.id], 12.0)
-        self.assertEqual(result.cooperation_rate, 1.0)
+        self.assertEqual(result.matches_played, 0)
+        self.assertEqual(result.score_by_agent_id[agent.id], 0.0)
+        self.assertEqual(result.cooperation_rate, 0.0)
         self.assertEqual(result.defection_rate, 0.0)
 
-    def test_random_opponent_mode_is_rejected(self) -> None:
-        with self.assertRaisesRegex(ValueError, "odd_agent_mode must be 'skip' or 'self_play'"):
-            self._interaction_config(odd_agent_mode="random_opponent")
+    def test_non_positive_num_steps_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "num_steps must be positive."):
+            self._interaction_config(num_steps=0)
+
+    def test_non_positive_num_generations_is_rejected_when_used(self) -> None:
+        with self.assertRaisesRegex(ValueError, "num_generations must be positive."):
+            SimulationConfig(
+                num_generations=0,
+                num_steps=None,
+                export_csv=False,
+                export_json=False,
+                export_visuals=False,
+            )
 
 
 class EngineTests(unittest.TestCase):

@@ -464,6 +464,8 @@ A compatibility map for selected Axelrod-library strategies is maintained in [do
 
 That mapping file also contains a separate `Project-Local Implemented Baselines` section for strategies that exist in `baseline_dna_library()` but are not primary Axelrod mapping rows.
 
+A separate plain-language Axelrod-to-local description guide is maintained in [docs/axelrod_descriptions.md](docs/axelrod_descriptions.md).
+
 A plain-language inventory of every implemented baseline strategy is maintained in [docs/implemented_strategies.md](docs/implemented_strategies.md).
 
 A plain-language explanation of the simulation lifecycle and match rules is maintained in [docs/game_model.md](docs/game_model.md).

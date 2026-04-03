@@ -308,25 +308,58 @@ The default seeded strategy list is:
 
 `SimulationConfig` covers the experiment and lifecycle model:
 
-- `initial_population`
-- `rounds_per_match`
-- `death_rate`
-- `max_population_size`
-- `overflow_cull_rate`
-- `overflow_cull_score_correlation`
-- `selection_epsilon`
-- `odd_agent_mode`
-- `reproduction_interval`
-- `checkpoint_interval`
-- `offspring_per_pair`
-- `mutation_genes_per_step`
-- `allow_self_pairing`
-- `pairing_mode`
-- `fixed_pairs_per_reproduction`
-- `reset_scores_after_reproduction`
-- `verbose`
-- `debug`
-- `trace`
+- `memory_depth`: supported DNA memory depth for generated lookup strategies; currently fixed at `1`
+- `rounds_per_match`: number of Prisoner's Dilemma rounds played in one match
+- `num_generations`: legacy alias for total run length; used when `num_steps` is omitted
+- `num_steps`: number of simulation steps to run
+- `initial_population_size`: total size of a random-initialized starting population
+- `initial_num_strategies`: number of distinct random starting DNAs when `initialization_mode = "random"`
+- `initial_population`: explicit mapping of strategy name or raw DNA to starting agent count
+- `mutation_rate`: legacy scalar used to derive `mutation_genes_per_step` when that field is omitted
+- `mutation_genes_per_step`: expected number of mutated bits per child genome
+- `crossover_rate`: probability of attempting crossover when creating a child
+- `noise_rate`: probability that an action is flipped during match play
+- `death_rate`: fraction of the population removed each step by low-score elimination
+- `max_population_size`: population cap that triggers overflow culling when reached or exceeded
+- `overflow_cull_rate`: fraction of the current population removed during an overflow cull
+- `overflow_cull_score_correlation`: how strongly overflow culling favors low-score agents, from `0.0` random to `1.0` lowest-score first
+- `selection_epsilon`: small positive weight added during parent selection so no surviving agent has zero selection probability
+- `odd_agent_mode`: what to do with one leftover unpaired agent: `skip`, `random_opponent`, or `self_play`
+- `self_play`: whether an agent may be matched against itself in interaction pairing when that mode is used
+- `payoff_R`: reward payoff for mutual cooperation
+- `payoff_T`: temptation payoff for defecting against a cooperator
+- `payoff_P`: punishment payoff for mutual defection
+- `payoff_S`: sucker payoff for cooperating against a defector
+- `random_seed`: RNG seed for deterministic reproducibility; `null` means non-deterministic
+- `selection_mode`: current parent-selection mode; only `fitness_proportional` is supported
+- `elitism_count`: legacy field currently kept for compatibility
+- `new_random_strategy_rate`: legacy field currently kept for compatibility
+- `extinction_threshold`: legacy field currently kept for compatibility
+- `initialization_mode`: `random` or `seeded` initial population construction
+- `include_seeded_strategies`: compatibility flag for seeded initialization behavior
+- `seed_strategies`: list of named baseline strategies used by seeded initialization
+- `seed_strategy_population`: number of starting agents created for each seeded strategy
+- `tft_forgiveness_probability`: compatibility parameter used by older baseline interfaces
+- `random_strategy_cooperation_probability`: compatibility parameter used by older baseline interfaces
+- `random_strategy_mix`: number of extra random strategies added during seeded initialization
+- `sexual_reproduction_rate`: legacy compatibility field for older reproduction models
+- `reproduction_interval`: run reproduction every N steps
+- `offspring_per_pair`: number of children created per selected parent pair
+- `max_children_per_agent`: lifetime child limit after which a parent dies
+- `allow_self_pairing`: whether parent selection may choose the same DNA for both parents
+- `pairing_mode`: parent-pair count rule: `max_possible` or `fixed`
+- `fixed_pairs_per_reproduction`: exact number of parent pairs when `pairing_mode = "fixed"`
+- `rating_mode`: legacy compatibility field; `current_step` and `rolling_average` are accepted
+- `rating_window`: legacy compatibility window for `rolling_average`
+- `reset_scores_after_reproduction`: whether agent scores reset to zero after each reproduction step
+- `checkpoint_interval`: write checkpoint exports every N steps; `0` disables checkpoints
+- `verbose`: print one plain-text progress line per step
+- `debug`: print richer per-step plain-text lifecycle details
+- `trace`: print trace-level plain-text event logs
+- `output_dir`: directory for metrics and optional visual outputs
+- `export_csv`: whether to write CSV exports
+- `export_json`: whether to write JSON exports
+- `export_visuals`: whether to render the infographic PNG and HTML report during the run
 
 Checkpoint behavior:
 
@@ -340,26 +373,27 @@ Checkpoint behavior:
 
 Visualization settings are:
 
-- `viz_palette`
-- `viz_bg_color`
-- `viz_panel_color`
-- `viz_ink_color`
-- `viz_muted_color`
-- `viz_accent_color`
-- `viz_cooperation_color`
-- `viz_defection_color`
-- `viz_unique_color`
-- `viz_entropy_color`
-- `viz_dominant_color`
-- `viz_title_text`
-- `viz_subtitle_text`
-- `viz_behavior_title`
-- `viz_structure_title`
-- `viz_leader_title`
-- `viz_report_title`
-- `viz_report_heading`
-- `viz_report_description`
-- `top_strategies_to_plot`
+- `output_dir`: destination directory for rendered visual assets
+- `top_strategies_to_plot`: number of largest strategy groups shown in the main landscape plot
+- `viz_palette`: fallback palette used for ranked strategies and categorical series
+- `viz_bg_color`: page and figure background color
+- `viz_panel_color`: card and plot panel background color
+- `viz_ink_color`: primary text and line color
+- `viz_muted_color`: secondary descriptive text color
+- `viz_accent_color`: highlight color used for emphasis and hybrid-related charts
+- `viz_cooperation_color`: color for cooperation-oriented lines and bars
+- `viz_defection_color`: color for defection-oriented lines and bars
+- `viz_unique_color`: color for unique-strategy count series
+- `viz_entropy_color`: color for diversity-entropy series
+- `viz_dominant_color`: color for dominant-share series
+- `viz_title_text`: title used on the static infographic
+- `viz_subtitle_text`: subtitle used on the static infographic
+- `viz_behavior_title`: heading for the behavior-over-time panel
+- `viz_structure_title`: heading for the population-structure panel
+- `viz_leader_title`: compatibility field for leader-summary wording
+- `viz_report_title`: HTML `<title>` text for the report page
+- `viz_report_heading`: main heading shown at the top of the HTML report
+- `viz_report_description`: short descriptive paragraph shown in the HTML report header
 
 ## Output
 

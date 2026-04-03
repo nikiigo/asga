@@ -18,6 +18,18 @@ Reference:
 
 These strategies choose their action from a fixed response table.
 
+For the simple memory-1 shorthand used by entries like `CCCCC`, `CCDCD`, or `CCDDC`, the symbol order is:
+
+- `[initial, CC, CD, DC, DD]`
+
+So `TFT = CCDCD` means:
+
+- initial move `C`
+- after `CC` -> `C`
+- after `CD` -> `D`
+- after `DC` -> `C`
+- after `DD` -> `D`
+
 | Shortname | DNA family | Default seeded setup | Raw DNA | Human explanation |
 | --- | --- | --- | --- | --- |
 | `ALLC` | `LOOKUP` | Yes | `00100000000000000001010000011000000000000000` | Always cooperates. It starts with cooperation and keeps cooperating no matter what the opponent does. |

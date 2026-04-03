@@ -112,6 +112,18 @@ Some deterministic baselines still have a simple decoded action-table view:
 - `TFT -> CCDCD`
 - `PAVLOV -> CCDDC`
 
+For this memory-1 shorthand, the symbol order is:
+
+- `[initial, CC, CD, DC, DD]`
+
+So in `TFT -> CCDCD`:
+
+- first `C` = initial move
+- second `C` = move after `CC`
+- third `D` = move after `CD`
+- fourth `C` = move after `DC`
+- fifth `D` = move after `DD`
+
 Internally, DNA now uses a typed header plus family-specific payload:
 
 - `VERSION | FAMILY | PAYLOAD_LENGTH | PAYLOAD`

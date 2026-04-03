@@ -9,6 +9,12 @@ from typing import Any, TypeVar
 
 from cooperation_ga.dna import default_genome_length
 
+
+def _max_random_lookup_strategies(memory_depth: int) -> int:
+    """Return the maximum number of unique random lookup DNAs the generator can produce."""
+    effective_memory = max(1, memory_depth)
+    return 2 ** (1 + 4**effective_memory)
+
 ConfigT = TypeVar("ConfigT", bound=object)
 
 
@@ -161,6 +167,11 @@ class SimulationConfig:
             raise ValueError("random initialization requires initial_population_size to be positive.")
         if self.initial_num_strategies <= 0:
             raise ValueError("initial_num_strategies must be positive.")
+        max_random_strategies = _max_random_lookup_strategies(self.memory_depth)
+        if self.initial_num_strategies > max_random_strategies:
+            raise ValueError(
+                f"initial_num_strategies exceeds the supported random DNA space ({max_random_strategies})."
+            )
         if self.seed_strategy_population <= 0:
             raise ValueError("seed_strategy_population must be positive.")
         for name in (
@@ -230,13 +241,21 @@ class SimulationConfig:
                 raise ValueError("initial_population must contain at least one agent.")
         elif self.initialization_mode == "seeded":
             seeded_population = 0
+            seeded_unique = 0
             if self.include_seeded_strategies:
-                seeded_population += len(set(self.seed_strategies)) * self.seed_strategy_population
+                seeded_unique = len(set(self.seed_strategies))
+                seeded_population += seeded_unique * self.seed_strategy_population
             seeded_population += self.random_strategy_mix * self.seed_strategy_population
             if seeded_population <= 0:
                 raise ValueError(
                     "seeded initialization must produce at least one agent. "
                     "Enable seeded strategies or set random_strategy_mix > 0."
+                )
+            available_random_slots = max(0, max_random_strategies - seeded_unique)
+            if self.random_strategy_mix > available_random_slots:
+                raise ValueError(
+                    "random_strategy_mix exceeds the remaining supported random DNA space "
+                    f"({available_random_slots})."
                 )
 
     @classmethod

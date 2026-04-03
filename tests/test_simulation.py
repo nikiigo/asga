@@ -1180,6 +1180,30 @@ class InteractionTests(unittest.TestCase):
                 random_strategy_mix=0,
             )
 
+    def test_random_initialization_rejects_too_many_unique_strategies(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "initial_num_strategies exceeds the supported random DNA space",
+        ):
+            self._interaction_config(
+                initialization_mode="random",
+                initial_population=None,
+                initial_population_size=10,
+                initial_num_strategies=33,
+            )
+
+    def test_seeded_initialization_rejects_too_large_random_strategy_mix(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "random_strategy_mix exceeds the remaining supported random DNA space",
+        ):
+            self._interaction_config(
+                initialization_mode="seeded",
+                initial_population=None,
+                include_seeded_strategies=False,
+                random_strategy_mix=33,
+            )
+
 
 class EngineTests(unittest.TestCase):
     @staticmethod

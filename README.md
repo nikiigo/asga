@@ -315,6 +315,7 @@ The default seeded strategy list is:
 - `initial_population_size`: total size of a random-initialized starting population
 - `initial_population_size` must be positive for random initialization
 - `initial_num_strategies`: number of distinct random starting DNAs when `initialization_mode = "random"`
+- with the current `memory_depth = 1` random generator, at most `32` unique random lookup DNAs are available
 - `initial_population`: explicit mapping of strategy name or raw DNA to starting agent count
 - `initial_population` must contain at least one agent when provided
 - `mutation_rate`: legacy scalar used to derive `mutation_genes_per_step` when that field is omitted
@@ -342,6 +343,7 @@ The default seeded strategy list is:
 - `tft_forgiveness_probability`: compatibility parameter used by older baseline interfaces
 - `random_strategy_cooperation_probability`: compatibility parameter used by older baseline interfaces
 - `random_strategy_mix`: number of extra random strategies added during seeded initialization
+- `random_strategy_mix` cannot exceed the remaining unique random DNA space after seeded strategies are counted
 - seeded initialization must produce at least one agent overall, either from named seed strategies or random strategy mix
 - `sexual_reproduction_rate`: legacy compatibility field for older reproduction models
 - `reproduction_interval`: run reproduction every N steps

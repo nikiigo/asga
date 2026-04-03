@@ -486,6 +486,30 @@ class DnaTests(unittest.TestCase):
         self.assertEqual(visualization.top_strategies_to_plot, 7)
         self.assertEqual(visualization.viz_title_text, "Demo")
 
+    def test_simulation_config_accepts_output_dir_only_json(self) -> None:
+        path = Path("test_output_visuals/config_output_dir_only_simulation.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            """{
+  "output_dir": "minimal_sim_output"
+}""",
+            encoding="utf-8",
+        )
+        simulation = SimulationConfig.from_json(path)
+        self.assertEqual(simulation.output_dir, "minimal_sim_output")
+
+    def test_visualization_config_accepts_output_dir_only_json(self) -> None:
+        path = Path("test_output_visuals/config_output_dir_only_visualization.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            """{
+  "output_dir": "minimal_render_output"
+}""",
+            encoding="utf-8",
+        )
+        visualization = VisualizationConfig.from_json(path)
+        self.assertEqual(visualization.output_dir, "minimal_render_output")
+
     def test_simulation_config_rejects_export_visuals_true(self) -> None:
         path = Path("test_output_visuals/config_export_visuals_true.json")
         path.parent.mkdir(parents=True, exist_ok=True)

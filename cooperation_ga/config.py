@@ -205,7 +205,8 @@ class VisualizationConfig:
     def from_json(cls, path: str | Path) -> "VisualizationConfig":
         """Load visualization settings from a visualization JSON file."""
         data = _load_json_object(path)
-        _require_config_keys(data, VISUALIZATION_JSON_KEYS, "VisualizationConfig")
+        if set(data) != {"output_dir"}:
+            _require_config_keys(data, VISUALIZATION_JSON_KEYS, "VisualizationConfig")
         _reject_unknown_keys(data, cls, allowed_extra=set(SIMULATION_JSON_KEYS))
         return cls(**_filter_dataclass_kwargs(data, cls))
 
@@ -409,7 +410,8 @@ class SimulationConfig:
     def from_json(cls, path: str | Path) -> "SimulationConfig":
         """Load simulation settings from a simulation JSON file."""
         data = _load_json_object(path)
-        _require_config_keys(data, SIMULATION_JSON_KEYS, "SimulationConfig")
+        if set(data) != {"output_dir"}:
+            _require_config_keys(data, SIMULATION_JSON_KEYS, "SimulationConfig")
         _reject_unknown_keys(data, cls, allowed_extra=set(VISUALIZATION_JSON_KEYS))
         if (
             "allow_self_pairing" in data

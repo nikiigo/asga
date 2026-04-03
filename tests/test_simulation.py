@@ -795,6 +795,20 @@ class EngineTests(unittest.TestCase):
         engine.run_step(1)
         self.assertTrue(all(agent.score == 0.0 for agent in engine.population.agents))
 
+    def test_reproduction_step_metrics_preserve_pre_reset_scores(self) -> None:
+        config = self._engine_config(
+            num_steps=1,
+            reproduction_interval=1,
+            initial_population={"ALLC": 4},
+            mutation_genes_per_step=0.0,
+            reset_scores_after_reproduction=True,
+        )
+        engine = EvolutionEngine.from_config(config)
+        metric = engine.run_step(1)
+        self.assertGreater(metric.average_score, 0.0)
+        self.assertGreater(metric.best_score, 0.0)
+        self.assertGreaterEqual(metric.best_score, metric.average_score)
+
     def test_verbose_run_prints_step_progress(self) -> None:
         config = self._engine_config(
             num_steps=1,
@@ -861,6 +875,25 @@ class EngineTests(unittest.TestCase):
         engine.run()
         self.assertTrue((output_dir / "checkpoints" / "step_00001" / "metrics.json").exists())
         self.assertTrue((output_dir / "checkpoints" / "step_00002" / "metrics.csv").exists())
+
+    def test_checkpoint_interval_prints_progress_even_without_verbose(self) -> None:
+        output_dir = Path("test_output_visuals/checkpoints_logging_case")
+        config = self._engine_config(
+            num_steps=1,
+            initial_population={"ALLC": 4},
+            checkpoint_interval=1,
+            output_dir=str(output_dir),
+            export_csv=True,
+            export_json=False,
+            export_visuals=False,
+        )
+        engine = EvolutionEngine.from_config(config)
+        output = StringIO()
+        with redirect_stdout(output):
+            engine.run()
+        rendered = output.getvalue()
+        self.assertIn("Writing checkpoint for step 1", rendered)
+        self.assertIn("Checkpoint written:", rendered)
 
     def test_population_cap_randomly_culls_after_reaching_max_size(self) -> None:
         config = self._engine_config(

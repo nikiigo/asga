@@ -62,6 +62,7 @@ class EvolutionEngine:
         self._apply_scores(interactions.score_by_agent_id)
         deaths_this_step, low_score_victims = self._eliminate_lowest_scoring_agents()
         self.population.increment_age()
+        score_snapshot = [agent.score for agent in self.population.agents]
 
         reproduction_step = step % self.config.reproduction_interval == 0
         births_this_step = 0
@@ -70,8 +71,6 @@ class EvolutionEngine:
         reproduction_trace: list[str] = []
         if reproduction_step:
             births_this_step, mutation_count, crossover_count, reproduction_trace = self._reproduce()
-            if getattr(self.config, "reset_scores_after_reproduction", True):
-                self.population.reset_scores()
 
         overflow_deaths, overflow_victims = self._apply_population_cap()
         deaths_this_step += overflow_deaths
@@ -85,7 +84,10 @@ class EvolutionEngine:
             reproduction_step=reproduction_step,
             mutation_count=mutation_count,
             crossover_count=crossover_count,
+            score_snapshot=score_snapshot,
         )
+        if reproduction_step and getattr(self.config, "reset_scores_after_reproduction", True):
+            self.population.reset_scores()
         if self.config.trace:
             self._print_trace(step, interactions, low_score_victims, overflow_victims, reproduction_trace)
         return metric
@@ -144,9 +146,13 @@ class EvolutionEngine:
     def export_checkpoint(self, metrics: list[GenerationMetrics], step: int) -> None:
         """Export an intermediate checkpoint snapshot."""
         checkpoint_dir = f"{self.config.output_dir}/checkpoints/step_{step:05d}"
+        print(
+            f"Writing checkpoint for step {step} to {checkpoint_dir}..."
+            " The program is still running and has not hung.",
+            flush=True,
+        )
         self._export_to_directory(metrics, checkpoint_dir)
-        if self.config.verbose or self.config.debug or self.config.trace:
-            print(f"Checkpoint written: {checkpoint_dir}")
+        print(f"Checkpoint written: {checkpoint_dir}", flush=True)
 
     def _export_to_directory(self, metrics: list[GenerationMetrics], output_dir: str) -> None:
         """Export recorded metrics in configured formats to a specific directory."""

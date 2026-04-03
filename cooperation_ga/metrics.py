@@ -69,11 +69,13 @@ def build_generation_metrics(
     reproduction_step: bool,
     mutation_count: int,
     crossover_count: int,
+    score_snapshot: list[float] | None = None,
 ) -> GenerationMetrics:
     """Create a serializable metrics snapshot for a step."""
     counts = population.dna_counts()
     labeled_counts = {dna.to_string(): count for dna, count in counts.items()}
-    scores = [agent.score for agent in population.agents] or [0.0]
+    scores = score_snapshot if score_snapshot is not None else [agent.score for agent in population.agents]
+    scores = scores or [0.0]
     total_population = population.total_size()
     entropy = 0.0
     dominant_share = 0.0

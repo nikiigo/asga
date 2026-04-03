@@ -82,8 +82,12 @@ def main() -> None:
         flush=True,
     )
     metrics = engine.run()
+    export_targets = [config.output_dir]
+    if config.export_visuals and visualization_config.output_dir not in export_targets:
+        export_targets.append(visualization_config.output_dir)
+    export_target_text = ", ".join(export_targets)
     print(
-        f"Simulation finished. Writing results to {config.output_dir}..."
+        f"Simulation finished. Writing results to: {export_target_text}..."
         " The program is still running and has not hung.",
         flush=True,
     )

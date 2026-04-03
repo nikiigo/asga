@@ -1192,6 +1192,18 @@ class InteractionTests(unittest.TestCase):
                 initial_num_strategies=33,
             )
 
+    def test_random_initialization_rejects_more_unique_strategies_than_agents(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "initial_num_strategies cannot exceed initial_population_size for random initialization.",
+        ):
+            self._interaction_config(
+                initialization_mode="random",
+                initial_population=None,
+                initial_population_size=2,
+                initial_num_strategies=8,
+            )
+
     def test_seeded_initialization_rejects_too_large_random_strategy_mix(self) -> None:
         with self.assertRaisesRegex(
             ValueError,
@@ -1459,8 +1471,20 @@ class EngineTests(unittest.TestCase):
         )
         engine = EvolutionEngine.from_config(config)
         metric = engine.run_step(1)
-        self.assertEqual(metric.deaths_this_step, ceil(config.death_rate * 200))
-        self.assertEqual(engine.population.total_size(), 200 - ceil(config.death_rate * 200))
+        expected_deaths = int(config.death_rate * 200)
+        self.assertEqual(metric.deaths_this_step, expected_deaths)
+        self.assertEqual(engine.population.total_size(), 200 - expected_deaths)
+
+    def test_tiny_population_with_small_death_rate_does_not_force_one_death(self) -> None:
+        config = self._engine_config(
+            num_steps=1,
+            initial_population={"ALLC": 3},
+            death_rate=0.02,
+        )
+        engine = EvolutionEngine.from_config(config)
+        metric = engine.run_step(1)
+        self.assertEqual(metric.deaths_this_step, 0)
+        self.assertEqual(engine.population.total_size(), 3)
 
     def test_extinction_step_reports_empty_score_distribution(self) -> None:
         config = self._engine_config(

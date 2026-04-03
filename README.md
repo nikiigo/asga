@@ -315,6 +315,7 @@ The default seeded strategy list is:
 - `initial_population_size`: total size of a random-initialized starting population
 - `initial_population_size` must be positive for random initialization
 - `initial_num_strategies`: number of distinct random starting DNAs when `initialization_mode = "random"`
+- `initial_num_strategies` cannot exceed `initial_population_size` in random initialization, because each requested distinct strategy must be represented at least once
 - with the current `memory_depth = 1` random generator, at most `32` unique random lookup DNAs are available
 - `initial_population`: explicit mapping of strategy name or raw DNA to starting agent count
 - `initial_population` must contain at least one agent when provided
@@ -322,7 +323,7 @@ The default seeded strategy list is:
 - `mutation_genes_per_step`: expected number of mutated bits per child genome; the engine converts this to a per-bit probability using the actual child DNA length
 - `crossover_rate`: probability of attempting crossover when creating a child
 - `noise_rate`: probability that an action is flipped during match play
-- `death_rate`: fraction of the population removed each step by low-score elimination
+- `death_rate`: fraction of the population removed each step by low-score elimination; the engine uses floor rounding, so tiny populations are not forced to lose one agent unless the configured fraction reaches at least one whole agent
 - `max_population_size`: population cap that triggers overflow culling when reached or exceeded
 - `overflow_cull_rate`: fraction of the current population removed during an overflow cull
 - `overflow_cull_score_correlation`: how strongly overflow culling favors low-score agents, from `0.0` random to `1.0` lowest-score first

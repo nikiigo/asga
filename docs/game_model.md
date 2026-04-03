@@ -122,7 +122,7 @@ On every step, the weakest-performing part of the population is removed.
 
 The configured rule is:
 
-- remove `ceil(death_rate * population_size)` agents
+- remove `floor(death_rate * population_size)` agents
 
 By default the project has used low percentages such as 0.5% or 2%, depending on configuration.
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from math import ceil
+from math import ceil, floor
 from random import Random
 from dataclasses import dataclass
 from pathlib import Path
@@ -210,7 +210,7 @@ class EvolutionEngine:
         """Remove the configured lowest-scoring fraction of agents, breaking ties randomly."""
         if not self.population.agents:
             return 0, []
-        num_to_kill = ceil(self.config.death_rate * self.population.total_size())
+        num_to_kill = floor(self.config.death_rate * self.population.total_size())
         shuffled = list(self.population.agents)
         self.rng.shuffle(shuffled)
         shuffled.sort(key=lambda agent: agent.score)

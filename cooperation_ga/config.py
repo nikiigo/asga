@@ -167,6 +167,14 @@ class SimulationConfig:
             raise ValueError("random initialization requires initial_population_size to be positive.")
         if self.initial_num_strategies <= 0:
             raise ValueError("initial_num_strategies must be positive.")
+        if (
+            self.initialization_mode == "random"
+            and self.initial_population is None
+            and self.initial_num_strategies > self.initial_population_size
+        ):
+            raise ValueError(
+                "initial_num_strategies cannot exceed initial_population_size for random initialization."
+            )
         max_random_strategies = _max_random_lookup_strategies(self.memory_depth)
         if self.initial_num_strategies > max_random_strategies:
             raise ValueError(

@@ -42,7 +42,7 @@ def run_interactions(
     pairwise_scores: list[tuple[int, int, MatchResult]] = []
     matches_played = 0
 
-    def record_match(agent_a: Agent, agent_b: Agent) -> None:
+    def record_match(agent_a: Agent, agent_b: Agent, *, count_agent_b: bool = True) -> None:
         nonlocal total_coop, total_defect, matches_played
         match = simulate_match(
             DnaStrategy(agent_a.dna),
@@ -58,9 +58,12 @@ def run_interactions(
             total_defect += (match.defect_a + match.defect_b) / 2
         else:
             score_by_agent_id[agent_a.id] += match.score_a
-            score_by_agent_id[agent_b.id] += match.score_b
-            total_coop += match.coop_a + match.coop_b
-            total_defect += match.defect_a + match.defect_b
+            total_coop += match.coop_a
+            total_defect += match.defect_a
+            if count_agent_b:
+                score_by_agent_id[agent_b.id] += match.score_b
+                total_coop += match.coop_b
+                total_defect += match.defect_b
         pairwise_scores.append((agent_a.id, agent_b.id, match))
         matches_played += 1
 
@@ -70,11 +73,6 @@ def run_interactions(
         limit = len(agents) - 1
         for index in range(0, limit, 2):
             record_match(agents[index], agents[index + 1])
-        if len(agents) % 2 == 1 and config.odd_agent_mode == "random_opponent" and len(agents) > 1:
-            leftover = agents[-1]
-            opponent = rng.choice(agents[:-1])
-            record_match(leftover, opponent)
-
     total_actions = total_coop + total_defect
     return InteractionResult(
         matches_played=matches_played,

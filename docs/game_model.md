@@ -90,7 +90,6 @@ This gives each agent at most one match on a step.
 If the population size is odd, behavior depends on configuration:
 
 - skip the leftover agent
-- match the leftover agent with a random opponent
 - allow self-play if configured
 
 If the leftover agent is skipped on that step:
@@ -112,6 +111,8 @@ This score is used for:
 
 - elimination
 - reproduction selection
+
+When the simulator reports per-step score metrics such as average, best, and worst score, those values describe the live post-step population snapshot for that step.
 
 Important distinction:
 
@@ -147,6 +148,11 @@ Parents are selected probabilistically from the living agents.
 Agents with higher scores get higher probability of being selected.
 
 To avoid zero-weight problems, the engine shifts scores by the current minimum and adds a small epsilon.
+
+`allow_self_pairing` is interpreted at the DNA level in the current implementation:
+
+- if `true`, both parents may have the same DNA
+- if `false`, the second parent must have different DNA from the first
 
 ### Current Parent/Child Rule
 
@@ -208,7 +214,7 @@ Mutation flips bits in the child DNA:
 - `0 -> 1`
 - `1 -> 0`
 
-The mutation setting is interpreted as an expected number of mutated genes per offspring genome, then converted to a per-bit probability.
+The mutation setting is interpreted as an expected number of mutated genes per offspring genome, then converted to a per-bit probability using the actual child DNA length.
 
 Invalid mutated DNA is rejected and the engine retries child creation until it gets a valid genome.
 

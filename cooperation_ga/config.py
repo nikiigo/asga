@@ -186,8 +186,8 @@ class SimulationConfig:
             raise ValueError("initialization_mode must be 'random' or 'seeded'.")
         if self.selection_epsilon <= 0.0:
             raise ValueError("selection_epsilon must be positive.")
-        if self.odd_agent_mode not in {"skip", "random_opponent", "self_play"}:
-            raise ValueError("odd_agent_mode must be 'skip', 'random_opponent', or 'self_play'.")
+        if self.odd_agent_mode not in {"skip", "self_play"}:
+            raise ValueError("odd_agent_mode must be 'skip' or 'self_play'.")
         if self.pairing_mode not in {"max_possible", "fixed"}:
             raise ValueError("pairing_mode must be 'max_possible' or 'fixed'.")
         if self.rating_mode not in {"current_step", "rolling_average"}:

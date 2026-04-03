@@ -316,7 +316,7 @@ The default seeded strategy list is:
 - `initial_num_strategies`: number of distinct random starting DNAs when `initialization_mode = "random"`
 - `initial_population`: explicit mapping of strategy name or raw DNA to starting agent count
 - `mutation_rate`: legacy scalar used to derive `mutation_genes_per_step` when that field is omitted
-- `mutation_genes_per_step`: expected number of mutated bits per child genome
+- `mutation_genes_per_step`: expected number of mutated bits per child genome; the engine converts this to a per-bit probability using the actual child DNA length
 - `crossover_rate`: probability of attempting crossover when creating a child
 - `noise_rate`: probability that an action is flipped during match play
 - `death_rate`: fraction of the population removed each step by low-score elimination
@@ -324,7 +324,7 @@ The default seeded strategy list is:
 - `overflow_cull_rate`: fraction of the current population removed during an overflow cull
 - `overflow_cull_score_correlation`: how strongly overflow culling favors low-score agents, from `0.0` random to `1.0` lowest-score first
 - `selection_epsilon`: small positive weight added during parent selection so no surviving agent has zero selection probability
-- `odd_agent_mode`: what to do with one leftover unpaired agent: `skip`, `random_opponent`, or `self_play`
+- `odd_agent_mode`: what to do with one leftover unpaired agent: `skip` or `self_play`
 - `self_play`: whether an agent may be matched against itself in interaction pairing when that mode is used
 - `payoff_R`: reward payoff for mutual cooperation
 - `payoff_T`: temptation payoff for defecting against a cooperator
@@ -333,7 +333,7 @@ The default seeded strategy list is:
 - `random_seed`: RNG seed for deterministic reproducibility; `null` means non-deterministic
 - `selection_mode`: current parent-selection mode; only `fitness_proportional` is supported
 - `elitism_count`: legacy field currently kept for compatibility
-- `new_random_strategy_rate`: legacy field currently kept for compatibility
+- `new_random_strategy_rate`: probability that reproduction creates a brand-new random child DNA instead of inheriting from parents
 - `extinction_threshold`: legacy field currently kept for compatibility
 - `initialization_mode`: `random` or `seeded` initial population construction
 - `include_seeded_strategies`: compatibility flag for seeded initialization behavior
@@ -346,7 +346,7 @@ The default seeded strategy list is:
 - `reproduction_interval`: run reproduction every N steps
 - `offspring_per_pair`: number of children created per selected parent pair
 - `max_children_per_agent`: lifetime child limit after which a parent dies
-- `allow_self_pairing`: whether parent selection may choose the same DNA for both parents
+- `allow_self_pairing`: whether both parents may share the same DNA; if `false`, the second parent must have different DNA from the first
 - `pairing_mode`: parent-pair count rule: `max_possible` or `fixed`
 - `fixed_pairs_per_reproduction`: exact number of parent pairs when `pairing_mode = "fixed"`
 - `rating_mode`: legacy compatibility field; `current_step` and `rolling_average` are accepted

@@ -1104,14 +1104,17 @@ class InteractionTests(unittest.TestCase):
         touched = {agent_id for pair in result.pairwise_scores for agent_id in pair[:2]}
         self.assertEqual(len(touched), 4)
 
-    def test_odd_agent_mode_random_opponent_plays_leftover_agent(self) -> None:
+    def test_odd_agent_mode_skip_leaves_one_agent_unmatched(self) -> None:
         config = self._interaction_config(
             initial_population={"ALLC": 5},
-            odd_agent_mode="random_opponent",
+            odd_agent_mode="skip",
         )
         population = Population.from_mapping(config.initial_population)
         result = run_interactions(population, config, Random(0))
-        self.assertEqual(result.matches_played, 3)
+        self.assertEqual(result.matches_played, 2)
+        self.assertEqual(sorted(result.score_by_agent_id.values()), [0.0, 60.0, 60.0, 60.0, 60.0])
+        self.assertEqual(result.cooperation_rate, 1.0)
+        self.assertEqual(result.defection_rate, 0.0)
 
     def test_single_agent_self_play_is_not_double_counted(self) -> None:
         config = self._interaction_config(
@@ -1127,6 +1130,10 @@ class InteractionTests(unittest.TestCase):
         self.assertEqual(result.score_by_agent_id[agent.id], 12.0)
         self.assertEqual(result.cooperation_rate, 1.0)
         self.assertEqual(result.defection_rate, 0.0)
+
+    def test_random_opponent_mode_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "odd_agent_mode must be 'skip' or 'self_play'"):
+            self._interaction_config(odd_agent_mode="random_opponent")
 
 
 class EngineTests(unittest.TestCase):
@@ -1155,7 +1162,7 @@ class EngineTests(unittest.TestCase):
             mutation_genes_per_step=0.0,
             crossover_rate=1.0,
         )
-        child, did_crossover, mutation_count = engine._create_valid_offspring(parent_a, parent_b, 0.0)
+        child, did_crossover, mutation_count = engine._create_valid_offspring(parent_a, parent_b)
         self.assertTrue(isinstance(child, StrategyDNA))
         if expected_family is not None:
             self.assertEqual(child.family_name(), expected_family)
@@ -1163,6 +1170,36 @@ class EngineTests(unittest.TestCase):
             self.assertIn(child.to_string(), {parent_a.to_string(), parent_b.to_string()})
         self.assertTrue(did_crossover)
         self.assertEqual(mutation_count, 0)
+
+    def test_mutation_probability_uses_actual_child_genome_length(self) -> None:
+        engine = self._make_engine(
+            mutation_genes_per_step=1.0,
+            crossover_rate=0.0,
+        )
+        parent_a = baseline_dna_library()["ALLC"]
+        parent_b = baseline_dna_library()["EVOLVED_ANN"]
+        expected_child = parent_b
+        observed_probability: list[float] = []
+
+        def fake_mutate(self: StrategyDNA, probability: float, rng: Random) -> StrategyDNA:
+            observed_probability.append(probability)
+            return expected_child
+
+        original_mutate = StrategyDNA.mutate
+        original_random = engine.rng.random
+        try:
+            StrategyDNA.mutate = fake_mutate  # type: ignore[method-assign]
+            engine.rng.random = lambda: 0.99  # pick parent_b when crossover is disabled
+            child, did_crossover, mutation_count = engine._create_valid_offspring(parent_a, parent_b)
+        finally:
+            StrategyDNA.mutate = original_mutate  # type: ignore[method-assign]
+            engine.rng.random = original_random
+
+        self.assertEqual(child, expected_child)
+        self.assertFalse(did_crossover)
+        self.assertEqual(mutation_count, 0)
+        self.assertEqual(len(observed_probability), 1)
+        self.assertAlmostEqual(observed_probability[0], 1.0 / len(expected_child.genes))
 
     def test_deterministic_reproducibility_with_fixed_seed(self) -> None:
         config = self._engine_config(
@@ -1384,7 +1421,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(engine.population.total_size(), 1)
         self.assertTrue(all(agent.id not in parent_ids for agent in engine.population.agents))
 
-    def test_allow_self_pairing_false_still_allows_distinct_agents_with_same_dna(self) -> None:
+    def test_allow_self_pairing_false_blocks_same_dna_parents(self) -> None:
         config = self._engine_config(
             num_steps=1,
             reproduction_interval=1,
@@ -1397,7 +1434,24 @@ class EngineTests(unittest.TestCase):
         engine = EvolutionEngine.from_config(config)
         metric = engine.run_step(1)
         self.assertTrue(metric.reproduction_step)
-        self.assertEqual(metric.births_this_step, 2)
+        self.assertEqual(metric.births_this_step, 0)
+
+    def test_allow_self_pairing_false_still_allows_different_dna_parents(self) -> None:
+        config = self._engine_config(
+            num_steps=1,
+            reproduction_interval=1,
+            initial_population={"ALLC": 2, "ALLD": 2},
+            death_rate=0.0,
+            mutation_genes_per_step=0.0,
+            crossover_rate=0.0,
+            allow_self_pairing=False,
+            pairing_mode="fixed",
+            fixed_pairs_per_reproduction=1,
+        )
+        engine = EvolutionEngine.from_config(config)
+        metric = engine.run_step(1)
+        self.assertTrue(metric.reproduction_step)
+        self.assertEqual(metric.births_this_step, 1)
 
     def test_scores_reset_after_reproduction(self) -> None:
         config = self._engine_config(
@@ -1424,6 +1478,24 @@ class EngineTests(unittest.TestCase):
         self.assertGreater(metric.average_score, 0.0)
         self.assertGreater(metric.best_score, 0.0)
         self.assertGreaterEqual(metric.best_score, metric.average_score)
+
+    def test_reproduction_step_metrics_use_live_post_step_population_scores(self) -> None:
+        config = self._engine_config(
+            num_steps=1,
+            reproduction_interval=1,
+            initial_population={"ALLC": 2},
+            death_rate=0.0,
+            mutation_genes_per_step=0.0,
+            crossover_rate=0.0,
+            reset_scores_after_reproduction=False,
+        )
+        engine = EvolutionEngine.from_config(config)
+        metric = engine.run_step(1)
+        live_scores = [agent.score for agent in engine.population.agents]
+        self.assertEqual(metric.total_population_size, len(live_scores))
+        self.assertAlmostEqual(metric.average_score, sum(live_scores) / len(live_scores))
+        self.assertEqual(metric.best_score, max(live_scores))
+        self.assertEqual(metric.worst_score, min(live_scores))
 
     def test_verbose_run_prints_step_progress(self) -> None:
         config = self._engine_config(

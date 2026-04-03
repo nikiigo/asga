@@ -74,7 +74,6 @@ class EvolutionEngine:
         self._apply_scores(interactions.score_by_agent_id)
         deaths_this_step, low_score_victims = self._eliminate_lowest_scoring_agents()
         self.population.increment_age()
-        score_snapshot = [agent.score for agent in self.population.agents]
 
         reproduction_step = step % self.config.reproduction_interval == 0
         births_this_step = 0
@@ -86,6 +85,7 @@ class EvolutionEngine:
 
         overflow_deaths, overflow_victims = self._apply_population_cap()
         deaths_this_step += overflow_deaths
+        score_snapshot = [agent.score for agent in self.population.agents]
 
         metric = build_generation_metrics(
             step=step,
@@ -231,14 +231,15 @@ class EvolutionEngine:
         parent_ids_to_remove: set[int] = set()
         trace_lines: list[str] = []
         target_pairs = self._target_pair_count(len(available))
-        per_gene_mutation = min(1.0, self.config.mutation_genes_per_step / len(available[0].dna.genes))
-
         for _ in range(target_pairs):
             parent_a = self._sample_parent(available)
             if parent_a is None:
                 break
             available.remove(parent_a)
-            parent_b = self._sample_parent(available)
+            parent_b = self._sample_parent(
+                available,
+                forbidden_dna=None if self.config.allow_self_pairing else parent_a.dna,
+            )
             if parent_b is None:
                 available.append(parent_a)
                 break
@@ -247,7 +248,6 @@ class EvolutionEngine:
                 child_dna, did_crossover, child_mutation_count = self._create_valid_offspring(
                     parent_a.dna,
                     parent_b.dna,
-                    per_gene_mutation,
                 )
                 crossover_count += int(did_crossover)
                 mutation_count += child_mutation_count
@@ -316,9 +316,13 @@ class EvolutionEngine:
             return min(self.config.fixed_pairs_per_reproduction or 0, available_population // 2)
         return available_population // 2
 
-    def _sample_parent(self, candidates: list[Agent]) -> Agent | None:
+    def _sample_parent(
+        self,
+        candidates: list[Agent],
+        forbidden_dna: StrategyDNA | None = None,
+    ) -> Agent | None:
         """Sample one parent with probability proportional to adjusted score."""
-        eligible = list(candidates)
+        eligible = [agent for agent in candidates if forbidden_dna is None or agent.dna != forbidden_dna]
         if not eligible:
             return None
         min_score = min(agent.score for agent in eligible)
@@ -390,11 +394,11 @@ class EvolutionEngine:
         self,
         dna_a: StrategyDNA,
         dna_b: StrategyDNA,
-        per_gene_mutation: float,
     ) -> tuple[StrategyDNA, bool, int]:
         """Retry crossover and mutation until a valid child genome is produced."""
         for _ in range(1000):
             child_dna, did_crossover = self._create_offspring(dna_a, dna_b)
+            per_gene_mutation = min(1.0, self.config.mutation_genes_per_step / len(child_dna.genes))
             try:
                 mutated = child_dna.mutate(per_gene_mutation, self.rng)
             except ValueError:

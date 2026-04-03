@@ -244,7 +244,18 @@ class EvolutionEngine:
                 available.append(parent_a)
                 break
             available.remove(parent_b)
-            for _child_index in range(self.config.offspring_per_pair):
+            remaining_capacity = min(
+                self.config.max_children_per_agent - parent_a.children_count,
+                self.config.max_children_per_agent - parent_b.children_count,
+            )
+            if remaining_capacity <= 0:
+                if parent_a.children_count >= self.config.max_children_per_agent:
+                    parent_ids_to_remove.add(parent_a.id)
+                if parent_b.children_count >= self.config.max_children_per_agent:
+                    parent_ids_to_remove.add(parent_b.id)
+                continue
+            pair_offspring = min(self.config.offspring_per_pair, remaining_capacity)
+            for _child_index in range(pair_offspring):
                 child_dna, did_crossover, child_mutation_count = self._create_valid_offspring(
                     parent_a.dna,
                     parent_b.dna,

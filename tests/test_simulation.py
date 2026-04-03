@@ -1188,7 +1188,7 @@ class InteractionTests(unittest.TestCase):
             self._interaction_config(
                 initialization_mode="random",
                 initial_population=None,
-                initial_population_size=10,
+                initial_population_size=40,
                 initial_num_strategies=33,
             )
 
@@ -1224,6 +1224,15 @@ class InteractionTests(unittest.TestCase):
         )
         population = Population.seeded_initial(config, Random(0))
         self.assertGreater(population.total_size(), 0)
+
+    def test_explicit_initial_population_ignores_random_initial_num_strategy_validation(self) -> None:
+        config = self._interaction_config(
+            initialization_mode="seeded",
+            initial_population={"ALLC": 1},
+            initial_num_strategies=33,
+        )
+        population = Population.seeded_initial(config, Random(0))
+        self.assertEqual(population.total_size(), 1)
 
 
 class EngineTests(unittest.TestCase):

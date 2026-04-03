@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import csv
 import json
 import math
@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 from cooperation_ga.dna import baseline_name_by_dna_string, explain_dna
-from cooperation_ga.population import Population
 from cooperation_ga.tournament import InteractionResult
 
 
@@ -38,6 +37,16 @@ class GenerationMetrics:
     reproduction_step: bool
     mutation_count: int
     crossover_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedExportData:
+    """Precomputed export rows and labels shared by multiple exporters."""
+
+    metric_rows: list[dict[str, Any]]
+    strategy_names: dict[str, str]
+    population_breakdown_rows: list[PopulationBreakdownRow]
+    final_population_rows: list[FinalPopulationSummaryRow]
 
 
 class PopulationBreakdownRow(TypedDict):
@@ -115,29 +124,33 @@ def build_generation_metrics(
     )
 
 
-def export_metrics_csv(metrics: list[GenerationMetrics], path: str | Path) -> None:
+def export_metrics_csv(
+    metrics: list[GenerationMetrics],
+    path: str | Path,
+    prepared_export: PreparedExportData | None = None,
+) -> None:
     """Write metrics to CSV format."""
-    if not metrics:
+    prepared = prepared_export or prepare_export_data(metrics)
+    if not prepared.metric_rows:
         return
-    flat_rows: list[dict[str, Any]] = []
-    for metric in metrics:
-        row = asdict(metric)
-        row["population_count_per_dna"] = json.dumps(row["population_count_per_dna"], sort_keys=True)
-        row["score_distribution"] = json.dumps(row["score_distribution"], sort_keys=True)
-        flat_rows.append(row)
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with destination.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(flat_rows[0].keys()))
+        writer = csv.DictWriter(handle, fieldnames=list(prepared.metric_rows[0].keys()))
         writer.writeheader()
-        writer.writerows(flat_rows)
+        writer.writerows(prepared.metric_rows)
 
 
-def export_metrics_json(metrics: list[GenerationMetrics], path: str | Path) -> None:
+def export_metrics_json(
+    metrics: list[GenerationMetrics],
+    path: str | Path,
+    prepared_export: PreparedExportData | None = None,
+) -> None:
     """Write metrics to JSON format."""
+    prepared = prepared_export or prepare_export_data(metrics)
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(json.dumps([asdict(metric) for metric in metrics], indent=2), encoding="utf-8")
+    destination.write_text(json.dumps(prepared.metric_rows, indent=2), encoding="utf-8")
 
 
 def load_metrics_json(path: str | Path) -> list[GenerationMetrics]:
@@ -150,10 +163,14 @@ def load_metrics_json(path: str | Path) -> list[GenerationMetrics]:
     return [GenerationMetrics(**item) for item in raw]
 
 
-def export_population_breakdown_csv(metrics: list[GenerationMetrics], path: str | Path) -> None:
+def export_population_breakdown_csv(
+    metrics: list[GenerationMetrics],
+    path: str | Path,
+    prepared_export: PreparedExportData | None = None,
+) -> None:
     """Write per-step DNA population breakdown ordered by descending population."""
-    rows = _population_breakdown_rows(metrics)
-    csv_rows: list[dict[str, Any]] = [dict(row) for row in rows]
+    prepared = prepared_export or prepare_export_data(metrics)
+    csv_rows: list[dict[str, Any]] = [dict(row) for row in prepared.population_breakdown_rows]
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with destination.open("w", newline="", encoding="utf-8") as handle:
@@ -162,17 +179,26 @@ def export_population_breakdown_csv(metrics: list[GenerationMetrics], path: str 
         writer.writerows(csv_rows)
 
 
-def export_population_breakdown_json(metrics: list[GenerationMetrics], path: str | Path) -> None:
+def export_population_breakdown_json(
+    metrics: list[GenerationMetrics],
+    path: str | Path,
+    prepared_export: PreparedExportData | None = None,
+) -> None:
     """Write per-step DNA population breakdown ordered by descending population."""
+    prepared = prepared_export or prepare_export_data(metrics)
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(json.dumps(_population_breakdown_rows(metrics), indent=2), encoding="utf-8")
+    destination.write_text(json.dumps(prepared.population_breakdown_rows, indent=2), encoding="utf-8")
 
 
-def export_final_population_summary_csv(metrics: list[GenerationMetrics], path: str | Path) -> None:
+def export_final_population_summary_csv(
+    metrics: list[GenerationMetrics],
+    path: str | Path,
+    prepared_export: PreparedExportData | None = None,
+) -> None:
     """Write the final-step population summary ordered by descending population."""
-    rows = final_population_summary_rows(metrics)
-    csv_rows: list[dict[str, Any]] = [dict(row) for row in rows]
+    prepared = prepared_export or prepare_export_data(metrics)
+    csv_rows: list[dict[str, Any]] = [dict(row) for row in prepared.final_population_rows]
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with destination.open("w", newline="", encoding="utf-8") as handle:
@@ -181,11 +207,16 @@ def export_final_population_summary_csv(metrics: list[GenerationMetrics], path: 
         writer.writerows(csv_rows)
 
 
-def export_final_population_summary_json(metrics: list[GenerationMetrics], path: str | Path) -> None:
+def export_final_population_summary_json(
+    metrics: list[GenerationMetrics],
+    path: str | Path,
+    prepared_export: PreparedExportData | None = None,
+) -> None:
     """Write the final-step population summary ordered by descending population."""
+    prepared = prepared_export or prepare_export_data(metrics)
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(json.dumps(final_population_summary_rows(metrics), indent=2), encoding="utf-8")
+    destination.write_text(json.dumps(prepared.final_population_rows, indent=2), encoding="utf-8")
 
 
 def _score_distribution(scores: list[float]) -> dict[str, int]:
@@ -197,6 +228,85 @@ def _score_distribution(scores: list[float]) -> dict[str, int]:
         bucket = str(math.floor(score))
         buckets[bucket] = buckets.get(bucket, 0) + 1
     return buckets
+
+
+def _metric_row(metric: GenerationMetrics) -> dict[str, Any]:
+    """Build one shallow serializable metrics row."""
+    return {
+        "step": metric.step,
+        "total_population_size": metric.total_population_size,
+        "num_unique_strategies": metric.num_unique_strategies,
+        "population_count_per_dna": json.dumps(metric.population_count_per_dna, sort_keys=True),
+        "dominant_dna": metric.dominant_dna,
+        "dominant_group_size": metric.dominant_group_size,
+        "average_score": metric.average_score,
+        "best_score": metric.best_score,
+        "worst_score": metric.worst_score,
+        "score_distribution": json.dumps(metric.score_distribution, sort_keys=True),
+        "overall_cooperation_rate": metric.overall_cooperation_rate,
+        "overall_defection_rate": metric.overall_defection_rate,
+        "diversity_entropy": metric.diversity_entropy,
+        "dominant_strategy_share": metric.dominant_strategy_share,
+        "matches_played": metric.matches_played,
+        "deaths_this_step": metric.deaths_this_step,
+        "births_this_step": metric.births_this_step,
+        "reproduction_step": metric.reproduction_step,
+        "mutation_count": metric.mutation_count,
+        "crossover_count": metric.crossover_count,
+    }
+
+
+def prepare_export_data(metrics: list[GenerationMetrics]) -> PreparedExportData:
+    """Precompute rows and labels shared by multiple export formats."""
+    strategy_names = strategy_name_by_dna(metrics)
+    explanation_cache: dict[str, str] = {}
+
+    def explanation_for(dna: str) -> str:
+        if dna not in explanation_cache:
+            explanation_cache[dna] = explain_dna(dna)
+        return explanation_cache[dna]
+
+    breakdown_rows: list[PopulationBreakdownRow] = []
+    for metric in metrics:
+        ordered = sorted(
+            metric.population_count_per_dna.items(),
+            key=lambda item: (-item[1], item[0]),
+        )
+        for dna, population in ordered:
+            breakdown_rows.append(
+                {
+                    "step": metric.step,
+                    "dna": dna,
+                    "strategy_name": strategy_names[dna],
+                    "strategy_explanation": explanation_for(dna),
+                    "population": population,
+                }
+            )
+
+    final_rows: list[FinalPopulationSummaryRow] = []
+    if metrics:
+        final_metric = metrics[-1]
+        ordered = sorted(
+            final_metric.population_count_per_dna.items(),
+            key=lambda item: (-item[1], item[0]),
+        )
+        final_rows = [
+            {
+                "step": final_metric.step,
+                "strategy_name": strategy_names[dna],
+                "dna": dna,
+                "population": population,
+                "strategy_explanation": explanation_for(dna),
+            }
+            for dna, population in ordered
+        ]
+
+    return PreparedExportData(
+        metric_rows=[_metric_row(metric) for metric in metrics],
+        strategy_names=strategy_names,
+        population_breakdown_rows=breakdown_rows,
+        final_population_rows=final_rows,
+    )
 
 
 def _population_breakdown_rows(metrics: list[GenerationMetrics]) -> list[PopulationBreakdownRow]:

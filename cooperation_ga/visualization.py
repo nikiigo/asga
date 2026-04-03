@@ -32,8 +32,8 @@ from cooperation_ga.config import VisualizationConfig
 from cooperation_ga.metrics import (
     FinalPopulationSummaryRow,
     GenerationMetrics,
-    final_population_summary_rows,
-    strategy_name_by_dna,
+    PreparedExportData,
+    prepare_export_data,
 )
 
 
@@ -92,6 +92,7 @@ def export_visualizations(
     metrics: list[GenerationMetrics],
     output_dir: str | Path,
     config: VisualizationConfig,
+    prepared_export: PreparedExportData | None = None,
 ) -> None:
     """Create infographic and HTML report assets for a simulation run."""
     destination = Path(output_dir)
@@ -99,7 +100,7 @@ def export_visualizations(
     status_path = destination / "status.txt"
     _write_render_status(status_path, "build_visualization_bundle", output_dir=str(destination), metrics_steps=len(metrics))
     print("Building visualization bundle...", flush=True)
-    bundle = _build_bundle(metrics, config)
+    bundle = _build_bundle(metrics, config, prepared_export)
     infographic_path = destination / "summary_infographic.png"
     report_path = destination / "report.html"
     _write_render_status(status_path, "render_infographic", infographic_path=str(infographic_path))
@@ -121,11 +122,16 @@ def _write_render_status(path: Path, phase: str, **payload: object) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
 
-def _build_bundle(metrics: list[GenerationMetrics], config: VisualizationConfig) -> VisualizationBundle:
+def _build_bundle(
+    metrics: list[GenerationMetrics],
+    config: VisualizationConfig,
+    prepared_export: PreparedExportData | None = None,
+) -> VisualizationBundle:
     """Normalize metrics into a renderer-friendly bundle."""
     palette = _palette(config)
-    strategy_names = strategy_name_by_dna(metrics)
-    final_rows = final_population_summary_rows(metrics)
+    export_data = prepared_export or prepare_export_data(metrics)
+    strategy_names = export_data.strategy_names
+    final_rows = export_data.final_population_rows
     top_dna = _fixed_dna_order(metrics, top_n=config.top_strategies_to_plot)
     timeline_colors = {
         dna: palette[index % len(palette)]

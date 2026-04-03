@@ -20,6 +20,7 @@ from cooperation_ga.metrics import (
     export_final_population_summary_json,
     export_population_breakdown_csv,
     export_population_breakdown_json,
+    prepare_export_data,
 )
 from cooperation_ga.population import Agent, Population
 from cooperation_ga.tournament import run_interactions
@@ -188,18 +189,40 @@ class EvolutionEngine:
         visual_output_dir: str | None = None,
     ) -> None:
         """Export recorded metrics in configured formats to a specific directory."""
+        prepared_export = prepare_export_data(metrics)
         if self.config.export_csv and metrics:
-            export_metrics_csv(metrics, f"{output_dir}/metrics.csv")
-            export_population_breakdown_csv(metrics, f"{output_dir}/population_breakdown.csv")
-            export_final_population_summary_csv(metrics, f"{output_dir}/final_population_summary.csv")
+            export_metrics_csv(metrics, f"{output_dir}/metrics.csv", prepared_export=prepared_export)
+            export_population_breakdown_csv(
+                metrics,
+                f"{output_dir}/population_breakdown.csv",
+                prepared_export=prepared_export,
+            )
+            export_final_population_summary_csv(
+                metrics,
+                f"{output_dir}/final_population_summary.csv",
+                prepared_export=prepared_export,
+            )
         if self.config.export_json:
-            export_metrics_json(metrics, f"{output_dir}/metrics.json")
-            export_population_breakdown_json(metrics, f"{output_dir}/population_breakdown.json")
-            export_final_population_summary_json(metrics, f"{output_dir}/final_population_summary.json")
+            export_metrics_json(metrics, f"{output_dir}/metrics.json", prepared_export=prepared_export)
+            export_population_breakdown_json(
+                metrics,
+                f"{output_dir}/population_breakdown.json",
+                prepared_export=prepared_export,
+            )
+            export_final_population_summary_json(
+                metrics,
+                f"{output_dir}/final_population_summary.json",
+                prepared_export=prepared_export,
+            )
         if self.config.export_visuals and metrics:
             from cooperation_ga.visualization import export_visualizations
 
-            export_visualizations(metrics, visual_output_dir or output_dir, self.visualization_config)
+            export_visualizations(
+                metrics,
+                visual_output_dir or output_dir,
+                self.visualization_config,
+                prepared_export=prepared_export,
+            )
 
     def _apply_scores(self, score_by_agent_id: dict[int, float]) -> None:
         """Add the current step's match scores to each agent."""

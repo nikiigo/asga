@@ -438,9 +438,12 @@ For long runs, a practical workflow is:
 
 Config naming convention:
 
+- simulation configs (`sample_config.json`, regular configs, and `*_fast.json`) define the simulation run and export toggles
+- simulation configs do not carry the visualization-only settings used for static report rendering
 - `*_fast.json`: simulation-only run, metrics/CSV/JSON exports enabled, visual export disabled
-- regular simulation config: simulation run with normal visual export enabled
+- regular simulation config: simulation run with normal visual export enabled, using visualization defaults derived in code unless a separate render config is provided
 - `*_render_static.json`: visualization-only config used with `--render-from-metrics`
+- when rendering from saved metrics, pass the matching `*_render_static.json` file via `--render-config`
 
 Example:
 
@@ -449,13 +452,7 @@ Example:
 .venv/bin/python main.py --config config_1000_steps_all_strategies_20_fast.json --render-config config_1000_steps_all_strategies_20_render_static.json --render-from-metrics sample_output_1000_all_strategies_20_fast/metrics.json
 ```
 
-For very long runs, render the HTML report afterward from saved metrics:
-
-```bash
-.venv/bin/python main.py --config config_1000_steps_all_strategies_20_fast.json --render-config config_1000_steps_all_strategies_20_render_static.json --render-from-metrics sample_output_1000_all_strategies_20_fast/metrics.json
-```
-
-Equivalent 10,000-step configs are also available:
+For very long runs, use the same pattern with the 10,000-step configs:
 
 ```bash
 .venv/bin/python main.py --config config_10000_steps_all_strategies_20_fast.json

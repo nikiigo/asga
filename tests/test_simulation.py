@@ -1139,6 +1139,20 @@ class InteractionTests(unittest.TestCase):
                 export_visuals=False,
             )
 
+    def test_fixed_pairing_requires_pair_count(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "fixed_pairs_per_reproduction must be set when pairing_mode is 'fixed'.",
+        ):
+            self._interaction_config(pairing_mode="fixed", fixed_pairs_per_reproduction=None)
+
+    def test_fixed_pairing_requires_positive_pair_count(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "fixed_pairs_per_reproduction must be positive when pairing_mode is 'fixed'.",
+        ):
+            self._interaction_config(pairing_mode="fixed", fixed_pairs_per_reproduction=0)
+
 
 class EngineTests(unittest.TestCase):
     @staticmethod

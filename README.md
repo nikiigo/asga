@@ -346,9 +346,7 @@ The default seeded strategy list is:
 - `max_children_per_agent`: lifetime child limit after which a parent dies
 - `allow_self_pairing`: whether both parents may share the same DNA; if `false`, the second parent must have different DNA from the first
 - `pairing_mode`: parent-pair count rule: `max_possible` or `fixed`
-- `fixed_pairs_per_reproduction`: exact number of parent pairs when `pairing_mode = "fixed"`
-- `rating_mode`: legacy compatibility field; `current_step` and `rolling_average` are accepted
-- `rating_window`: legacy compatibility window for `rolling_average`
+- `fixed_pairs_per_reproduction`: exact number of parent pairs when `pairing_mode = "fixed"`; required in that mode
 - `reset_scores_after_reproduction`: whether agent scores reset to zero after each reproduction step
 - `checkpoint_interval`: write checkpoint exports every N steps; `0` disables checkpoints
 - `verbose`: print one plain-text progress line per step

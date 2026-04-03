@@ -135,8 +135,6 @@ class SimulationConfig:
     allow_self_pairing: bool = True
     pairing_mode: str = "max_possible"
     fixed_pairs_per_reproduction: int | None = None
-    rating_mode: str = "current_step"
-    rating_window: int = 10
     reset_scores_after_reproduction: bool = True
     checkpoint_interval: int = 0
     verbose: bool = False
@@ -190,8 +188,6 @@ class SimulationConfig:
             raise ValueError("selection_epsilon must be positive.")
         if self.pairing_mode not in {"max_possible", "fixed"}:
             raise ValueError("pairing_mode must be 'max_possible' or 'fixed'.")
-        if self.rating_mode not in {"current_step", "rolling_average"}:
-            raise ValueError("rating_mode must be 'current_step' or 'rolling_average'.")
         if self.reproduction_interval <= 0:
             raise ValueError("reproduction_interval must be positive.")
         if self.checkpoint_interval < 0:
@@ -200,8 +196,11 @@ class SimulationConfig:
             raise ValueError("offspring_per_pair must be positive.")
         if self.max_children_per_agent <= 0:
             raise ValueError("max_children_per_agent must be positive.")
-        if self.rating_window <= 0:
-            raise ValueError("rating_window must be positive.")
+        if self.pairing_mode == "fixed":
+            if self.fixed_pairs_per_reproduction is None:
+                raise ValueError("fixed_pairs_per_reproduction must be set when pairing_mode is 'fixed'.")
+            if self.fixed_pairs_per_reproduction <= 0:
+                raise ValueError("fixed_pairs_per_reproduction must be positive when pairing_mode is 'fixed'.")
         if self.seed_strategies is None:
             self.seed_strategies = [
                 "ALLC",

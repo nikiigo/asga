@@ -302,6 +302,8 @@ class DnaTests(unittest.TestCase):
         explanation = explain_dna(dna.to_string())
         self.assertIn("NYDEGGER", explanation)
         self.assertIn("SCRIPTED strategy", explanation)
+        self.assertNotIn("parameters", explanation)
+        self.assertIn("retaliate", explanation)
 
     def test_nn_dna_roundtrip_preserves_dimensions_and_weights(self) -> None:
         weights = tuple(float(index) / 10.0 for index in range(38))
@@ -513,6 +515,7 @@ class DnaTests(unittest.TestCase):
         config_path = Path("test_output_visuals/cli_simulation_only_config.json")
         output_dir = Path("test_output_visuals/cli_simulation_only_output")
         config_path.parent.mkdir(parents=True, exist_ok=True)
+        (output_dir / "status.txt").unlink(missing_ok=True)
         config_path.write_text(
             """{
   "num_steps": 1,
@@ -1400,8 +1403,10 @@ class EngineTests(unittest.TestCase):
         )
         self.assertEqual(EvolutionEngine.from_config(config).run(), EvolutionEngine.from_config(config).run())
 
-    def test_visual_exports_are_generated(self) -> None:
+    def test_simulation_export_writes_metrics_only_even_when_visuals_enabled(self) -> None:
         output_dir = Path("test_output_visuals")
+        (output_dir / "report.html").unlink(missing_ok=True)
+        (output_dir / "summary_infographic.png").unlink(missing_ok=True)
         config = SimulationConfig(
             num_steps=2,
             initial_population_size=20,
@@ -1418,14 +1423,14 @@ class EngineTests(unittest.TestCase):
         )
         metrics = engine.run()
         engine.export(metrics)
-        self.assertTrue((output_dir / "report.html").exists())
         self.assertTrue((output_dir / "population_breakdown.csv").exists())
         self.assertTrue((output_dir / "population_breakdown.json").exists())
         self.assertTrue((output_dir / "final_population_summary.csv").exists())
         self.assertTrue((output_dir / "final_population_summary.json").exists())
         self.assertIn("strategy_explanation", (output_dir / "population_breakdown.csv").read_text(encoding="utf-8"))
         self.assertIn("strategy_name", (output_dir / "final_population_summary.csv").read_text(encoding="utf-8"))
-        self.assertNotIn("Winning DNA", (output_dir / "report.html").read_text(encoding="utf-8"))
+        self.assertFalse((output_dir / "report.html").exists())
+        self.assertFalse((output_dir / "summary_infographic.png").exists())
 
     def test_non_visual_exports_stream_metrics_json(self) -> None:
         output_dir = Path("test_output_non_visual_exports")
@@ -1447,8 +1452,9 @@ class EngineTests(unittest.TestCase):
         self.assertTrue((output_dir / "population_breakdown.json").exists())
         self.assertTrue((output_dir / "final_population_summary.json").exists())
 
-    def test_extinction_outputs_report_no_surviving_strategy(self) -> None:
+    def test_extinction_outputs_no_surviving_strategy_in_cli_summary(self) -> None:
         output_dir = Path("test_output_extinction_visuals")
+        (output_dir / "report.html").unlink(missing_ok=True)
         config = SimulationConfig(
             num_steps=1,
             initial_population={"ALLC": 4},
@@ -1470,38 +1476,55 @@ class EngineTests(unittest.TestCase):
             final = metrics[-1]
             winning_dna = final.dominant_dna if final.total_population_size > 0 else "no surviving strategy"
             print(f"Winning DNA: {winning_dna}")
-        report_html = (output_dir / "report.html").read_text(encoding="utf-8")
-        self.assertIn("no surviving strategy", report_html)
         self.assertIn("Winning DNA: no surviving strategy", stdout.getvalue())
+        self.assertFalse((output_dir / "report.html").exists())
 
-    def test_visual_exports_print_progress(self) -> None:
+    def test_render_from_metrics_prints_static_progress(self) -> None:
         output_dir = Path("test_output_visuals_progress")
-        config = SimulationConfig(
-            num_steps=1,
-            initial_population_size=12,
-            initial_num_strategies=3,
-            random_seed=11,
-            output_dir=str(output_dir),
-            export_csv=False,
-            export_json=False,
-            export_visuals=True,
-        )
-        engine = EvolutionEngine.from_config(
-            config,
-            VisualizationConfig(output_dir=str(output_dir), top_strategies_to_plot=5),
-        )
+        (output_dir / "report.html").unlink(missing_ok=True)
+        (output_dir / "summary_infographic.png").unlink(missing_ok=True)
+        metrics = [
+            GenerationMetrics(
+                step=1,
+                total_population_size=12,
+                num_unique_strategies=1,
+                population_count_per_dna={baseline_dna_library()["ALLC"].to_string(): 12},
+                dominant_dna=baseline_dna_library()["ALLC"].to_string(),
+                dominant_group_size=12,
+                average_score=10.0,
+                best_score=10.0,
+                worst_score=10.0,
+                score_distribution={"10": 12},
+                overall_cooperation_rate=1.0,
+                overall_defection_rate=0.0,
+                diversity_entropy=0.0,
+                dominant_strategy_share=1.0,
+                matches_played=6,
+                deaths_this_step=0,
+                births_this_step=0,
+                reproduction_step=False,
+                mutation_count=0,
+                crossover_count=0,
+            )
+        ]
         stdout = StringIO()
         with redirect_stdout(stdout):
-            metrics = engine.run()
-            engine.export(metrics)
+            from cooperation_ga.visualization import export_visualizations
+
+            export_visualizations(
+                metrics,
+                output_dir,
+                VisualizationConfig(output_dir=str(output_dir), top_strategies_to_plot=5),
+            )
         text = stdout.getvalue()
         self.assertIn("Building visualization bundle...", text)
-        self.assertIn("Building interactive report figures...", text)
-        self.assertIn("Writing HTML report:", text)
+        self.assertIn("Writing static infographic:", text)
         self.assertIn("Finished rendering visual outputs.", text)
         status = json.loads((output_dir / "status.txt").read_text(encoding="utf-8"))
         self.assertEqual(status["phase"], "done")
-        self.assertEqual(status["target_dir"], str(output_dir))
+        self.assertEqual(status["infographic_path"], str(output_dir / "summary_infographic.png"))
+        self.assertTrue((output_dir / "summary_infographic.png").exists())
+        self.assertFalse((output_dir / "report.html").exists())
 
     def test_run_writes_status_file(self) -> None:
         output_dir = Path("test_output_status")
@@ -1523,6 +1546,9 @@ class EngineTests(unittest.TestCase):
     def test_visual_outputs_can_use_separate_render_directory(self) -> None:
         metrics_dir = Path("test_output_status")
         render_dir = Path("test_output_visuals_progress")
+        (metrics_dir / "report.html").unlink(missing_ok=True)
+        (render_dir / "report.html").unlink(missing_ok=True)
+        (render_dir / "summary_infographic.png").unlink(missing_ok=True)
         config = SimulationConfig(
             num_steps=1,
             initial_population_size=12,
@@ -1539,11 +1565,15 @@ class EngineTests(unittest.TestCase):
         )
         metrics = engine.run()
         engine.export(metrics)
+        from cooperation_ga.visualization import export_visualizations
+
+        export_visualizations(metrics, render_dir, VisualizationConfig(output_dir=str(render_dir), top_strategies_to_plot=5))
 
         self.assertTrue((metrics_dir / "metrics.json").exists())
         self.assertTrue((metrics_dir / "population_breakdown.json").exists())
         self.assertFalse((metrics_dir / "report.html").exists())
-        self.assertTrue((render_dir / "report.html").exists())
+        self.assertTrue((render_dir / "summary_infographic.png").exists())
+        self.assertFalse((render_dir / "report.html").exists())
         status = json.loads((render_dir / "status.txt").read_text(encoding="utf-8"))
         self.assertEqual(status["phase"], "done")
 

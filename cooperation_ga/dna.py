@@ -77,6 +77,22 @@ SCRIPT_ID_TO_NAME: Final[dict[int, str]] = {
     13: "FIRST_BY_TIDEMAN_AND_CHIERUZZI",
 }
 SCRIPT_NAME_TO_ID: Final[dict[str, int]] = {name: script_id for script_id, name in SCRIPT_ID_TO_NAME.items()}
+SCRIPTED_EXPLANATIONS: Final[dict[str, str]] = {
+    "NYDEGGER": "Uses a coded rule over recent outcomes to decide when to retaliate.",
+    "SHUBIK": "Escalates retaliation length after repeated betrayals.",
+    "CHAMPION": "Uses phased behavior early, then switches to a stochastic rule later in the match.",
+    "TULLOCK": "Starts cooperatively, then reacts to the opponent's recent cooperation rate.",
+    "CYCLER_CCCCCD": "Repeats five cooperations followed by one defection.",
+    "PROBER": "Opens with D,C,C, then either exploits naive opponents or falls back to Tit For Tat.",
+    "ADAPTIVE": "Tracks whether cooperation or defection has scored better and then prefers the stronger action.",
+    "APAVLOV2006": "Classifies opponents in six-turn blocks and switches policy based on the detected class.",
+    "APAVLOV2011": "Classifies opponents in six-turn blocks and uses TFT, TFTT, or pure defection depending on the class.",
+    "SECOND_BY_GROFMAN": "Uses a phased rule and later a conditional decision based on the earlier seven of the last eight rounds.",
+    "ADAPTOR_BRIEF": "Maintains a continuous internal state and converts it into a cooperation probability tuned for short interactions.",
+    "ADAPTOR_LONG": "Maintains a continuous internal state and converts it into a cooperation probability tuned for long interactions.",
+    "FIRST_BY_STEIN_AND_RAPOPORT": "Starts cooperatively, plays TFT, periodically checks whether the opponent looks random, and defects at the end of the match.",
+    "FIRST_BY_TIDEMAN_AND_CHIERUZZI": "Escalates punishment, tracks score advantage, may grant a fresh start, and defects in the final two turns.",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -451,10 +467,12 @@ class StrategyDNA:
                 + " ".join(transition_descriptions)
             )
         if family == "SCRIPTED":
-            return (
-                f"{prefix}SCRIPTED strategy `{self.script_name()}` with parameters "
-                f"{self.script_parameters()}."
+            script_name = self.script_name()
+            explanation = SCRIPTED_EXPLANATIONS.get(
+                script_name,
+                "Uses the exact named scripted behavior encoded by this DNA family.",
             )
+            return f"{prefix}SCRIPTED strategy `{script_name}`. {explanation}"
         if family == "COUNTER_TRIGGER":
             trigger_states = ", ".join(
                 _state_to_text(state)

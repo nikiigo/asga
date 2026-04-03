@@ -223,7 +223,11 @@ class EvolutionEngine:
         """Run scheduled reproduction at the individual-agent level."""
         if len(self.population.agents) < 2:
             return 0, 0, 0, []
-        available = list(self.population.agents)
+        available = [
+            agent
+            for agent in self.population.agents
+            if agent.children_count < self.config.max_children_per_agent
+        ]
         births = 0
         mutation_count = 0
         crossover_count = 0
@@ -241,7 +245,6 @@ class EvolutionEngine:
                 forbidden_dna=None if self.config.allow_self_pairing else parent_a.dna,
             )
             if parent_b is None:
-                available.append(parent_a)
                 break
             available.remove(parent_b)
             remaining_capacity = min(

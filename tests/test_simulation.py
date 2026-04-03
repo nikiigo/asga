@@ -1573,6 +1573,30 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(engine.population.total_size(), 1)
         self.assertTrue(all(agent.children_count == 0 for agent in engine.population.agents))
 
+    def test_saturated_parents_are_excluded_from_pair_selection(self) -> None:
+        config = self._engine_config(
+            num_steps=1,
+            reproduction_interval=1,
+            initial_population={"ALLC": 2, "ALLD": 2},
+            death_rate=0.0,
+            pairing_mode="fixed",
+            fixed_pairs_per_reproduction=1,
+            mutation_genes_per_step=0.0,
+            crossover_rate=0.0,
+            max_children_per_agent=1,
+        )
+        engine = EvolutionEngine.from_config(config)
+        allc = baseline_dna_library()["ALLC"]
+        for agent in engine.population.agents:
+            if agent.dna == allc:
+                agent.children_count = 1
+                agent.score = 100.0
+            else:
+                agent.score = 1.0
+        metric = engine.run_step(1)
+        self.assertEqual(metric.births_this_step, 1)
+        self.assertEqual(engine.population.total_size(), 3)
+
     def test_allow_self_pairing_false_blocks_same_dna_parents(self) -> None:
         config = self._engine_config(
             num_steps=1,

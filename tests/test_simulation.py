@@ -442,6 +442,23 @@ class DnaTests(unittest.TestCase):
         self.assertEqual(visualization.top_strategies_to_plot, 7)
         self.assertEqual(visualization.viz_title_text, "Demo")
 
+    def test_render_only_config_is_rejected_as_simulation_config(self) -> None:
+        with self.assertRaisesRegex(ValueError, "SimulationConfig JSON must include"):
+            SimulationConfig.from_json("sample_render_config.json")
+        visualization = VisualizationConfig.from_json("sample_render_config.json")
+        self.assertEqual(visualization.output_dir, "sample_output")
+
+    def test_shipped_render_static_config_is_rejected_as_simulation_config(self) -> None:
+        with self.assertRaisesRegex(ValueError, "SimulationConfig JSON must include"):
+            SimulationConfig.from_json("config_1000_steps_all_strategies_20_render_static.json")
+        visualization = VisualizationConfig.from_json(
+            "config_1000_steps_all_strategies_20_render_static.json"
+        )
+        self.assertEqual(
+            visualization.output_dir,
+            "sample_output_1000_all_strategies_20_render_static",
+        )
+
 
 class StrategyTests(unittest.TestCase):
     def _assert_matches_reference(

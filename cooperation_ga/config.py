@@ -32,6 +32,81 @@ def _random_lookup_space(memory_depth: int) -> set[str]:
     return random_space
 
 ConfigT = TypeVar("ConfigT", bound=object)
+SIMULATION_JSON_KEYS = frozenset(
+    {
+        "memory_depth",
+        "rounds_per_match",
+        "num_generations",
+        "num_steps",
+        "initial_population_size",
+        "initial_num_strategies",
+        "initial_population",
+        "mutation_rate",
+        "mutation_genes_per_step",
+        "crossover_rate",
+        "noise_rate",
+        "death_rate",
+        "max_population_size",
+        "overflow_cull_rate",
+        "overflow_cull_score_correlation",
+        "selection_epsilon",
+        "payoff_R",
+        "payoff_T",
+        "payoff_P",
+        "payoff_S",
+        "random_seed",
+        "selection_mode",
+        "elitism_count",
+        "new_random_strategy_rate",
+        "extinction_threshold",
+        "initialization_mode",
+        "include_seeded_strategies",
+        "seed_strategies",
+        "seed_strategy_population",
+        "tft_forgiveness_probability",
+        "random_strategy_cooperation_probability",
+        "random_strategy_mix",
+        "sexual_reproduction_rate",
+        "reproduction_interval",
+        "offspring_per_pair",
+        "max_children_per_agent",
+        "allow_self_pairing",
+        "pairing_mode",
+        "fixed_pairs_per_reproduction",
+        "reset_scores_after_reproduction",
+        "checkpoint_interval",
+        "verbose",
+        "debug",
+        "trace",
+        "export_csv",
+        "export_json",
+        "export_visuals",
+    }
+)
+VISUALIZATION_JSON_KEYS = frozenset(
+    {
+        "top_strategies_to_plot",
+        "viz_palette",
+        "viz_bg_color",
+        "viz_panel_color",
+        "viz_ink_color",
+        "viz_muted_color",
+        "viz_accent_color",
+        "viz_cooperation_color",
+        "viz_defection_color",
+        "viz_unique_color",
+        "viz_entropy_color",
+        "viz_dominant_color",
+        "viz_title_text",
+        "viz_subtitle_text",
+        "viz_behavior_title",
+        "viz_structure_title",
+        "viz_leader_title",
+        "viz_report_title",
+        "viz_report_heading",
+        "viz_report_description",
+    }
+)
 
 
 def _load_json_object(path: str | Path) -> dict[str, Any]:
@@ -46,6 +121,20 @@ def _filter_dataclass_kwargs(data: dict[str, Any], cls: type[ConfigT]) -> dict[s
     """Keep only keys accepted by the target dataclass."""
     allowed = {field.name for field in fields(cls)}
     return {key: value for key, value in data.items() if key in allowed}
+
+
+def _require_config_keys(
+    data: dict[str, Any],
+    required_any: frozenset[str],
+    config_kind: str,
+) -> None:
+    """Require at least one distinguishing key for the expected config type."""
+    if any(key in data for key in required_any):
+        return
+    kind_label = config_kind.removesuffix("Config").lower()
+    raise ValueError(
+        f"{config_kind} JSON must include at least one {kind_label}-specific setting."
+    )
 
 
 @dataclass(slots=True)
@@ -96,8 +185,10 @@ class VisualizationConfig:
 
     @classmethod
     def from_json(cls, path: str | Path) -> "VisualizationConfig":
-        """Load visualization settings from a JSON file, ignoring simulation keys."""
-        return cls(**_filter_dataclass_kwargs(_load_json_object(path), cls))
+        """Load visualization settings from a visualization JSON file."""
+        data = _load_json_object(path)
+        _require_config_keys(data, VISUALIZATION_JSON_KEYS, "VisualizationConfig")
+        return cls(**_filter_dataclass_kwargs(data, cls))
 
     @classmethod
     def from_simulation_config(cls, config: "SimulationConfig") -> "VisualizationConfig":
@@ -289,8 +380,10 @@ class SimulationConfig:
 
     @classmethod
     def from_json(cls, path: str | Path) -> "SimulationConfig":
-        """Load simulation settings from a JSON file, ignoring visualization keys."""
-        return cls(**_filter_dataclass_kwargs(_load_json_object(path), cls))
+        """Load simulation settings from a simulation JSON file."""
+        data = _load_json_object(path)
+        _require_config_keys(data, SIMULATION_JSON_KEYS, "SimulationConfig")
+        return cls(**_filter_dataclass_kwargs(data, cls))
 
     def to_json(self, path: str | Path) -> None:
         """Persist configuration to a JSON file."""

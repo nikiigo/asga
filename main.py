@@ -83,6 +83,11 @@ def main() -> None:
         print(f"Rendered visuals from metrics: {args.render_from_metrics}", flush=True)
         print(f"Static infographic: {Path(visualization_config.output_dir) / 'summary_infographic.png'}", flush=True)
         return
+    if args.render_config is not None:
+        raise ValueError(
+            "--render-config is only supported together with --render-from-metrics. "
+            "Simulation runs export metrics only."
+        )
     config = SimulationConfig.from_json(args.config)
     if args.verbose:
         config.verbose = True
@@ -93,11 +98,7 @@ def main() -> None:
         config.trace = True
         config.debug = True
         config.verbose = True
-    if args.render_config is not None:
-        visualization_config = VisualizationConfig.from_json(args.render_config)
-    else:
-        visualization_config = VisualizationConfig.from_simulation_config(config)
-    engine = EvolutionEngine.from_config(config, visualization_config)
+    engine = EvolutionEngine.from_config(config)
     _write_status(Path(config.output_dir) / "status.txt", "starting", total_steps=config.num_steps, output_dir=config.output_dir)
     print(
         f"Starting simulation for {config.num_steps} steps. Output directory: {config.output_dir}",

@@ -592,6 +592,34 @@ class DnaTests(unittest.TestCase):
         status = json.loads((output_dir / "status.txt").read_text(encoding="utf-8"))
         self.assertEqual(status["phase"], "done")
 
+    def test_cli_rejects_render_config_during_simulation_runs(self) -> None:
+        config_path = Path("test_output_visuals/cli_simulation_rejects_render_config.json")
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(
+            """{
+  "num_steps": 1,
+  "initial_population_size": 12,
+  "initial_num_strategies": 3,
+  "output_dir": "test_output_visuals/cli_simulation_rejects_render_config",
+  "export_csv": false,
+  "export_json": false
+}""",
+            encoding="utf-8",
+        )
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "main.py",
+                "--config",
+                str(config_path),
+                "--render-config",
+                "sample_render_config.json",
+            ],
+        ):
+            with self.assertRaisesRegex(ValueError, "--render-config is only supported together with --render-from-metrics"):
+                cli_main.main()
+
     def test_cli_render_from_metrics_does_not_require_simulation_config(self) -> None:
         metrics_path = Path("test_output_visuals/cli_render_only_metrics.json")
         render_dir = Path("test_output_visuals/cli_render_only_output")

@@ -19,7 +19,6 @@ Action encoding follows the project spec:
 - `sample_config.json`: example simulation configuration
 - `sample_render_config.json`: example visualization configuration
 - `tests/`: unit and behavioral tests
-- `sample_output/`: generated metrics artifacts
 
 ## Requirements
 
@@ -302,7 +301,7 @@ Visualization settings are:
 
 ## Output
 
-The simulator exports:
+The simulator exports generated files under the configured `output_dir`, for example:
 
 - `sample_output/metrics.csv`
 - `sample_output/metrics.json`

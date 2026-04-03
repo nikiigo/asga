@@ -6,5 +6,6 @@ __pycache__/
 
 test_output_visuals/
 test_output_visuals_no_animation/
+sample_output/
 sample_output_*/
 tmp_*_config.json

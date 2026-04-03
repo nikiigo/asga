@@ -18,6 +18,7 @@ Action encoding follows the project spec:
 - `main.py`: CLI entrypoint
 - `sample_config.json`: example simulation configuration
 - `sample_render_config.json`: example visualization configuration
+- `docs/example_runs.md`: concrete example runs and saved rendered outputs
 - `tests/`: unit and behavioral tests
 
 ## Requirements
@@ -60,6 +61,17 @@ Run with trace-level plain-text event logging:
 ```
 
 During long runs, the CLI prints an explicit message when the simulation loop has finished and the program is writing results to disk. That export phase can take noticeable time on large runs, so this message confirms the process is still active and has not hung.
+
+## Example Run
+
+The repository includes a saved example for the 1000-step full-strategy run:
+
+- walkthrough: [docs/example_runs.md](docs/example_runs.md)
+- HTML report: [docs/examples/report_1000_steps_all_strategies_20.html](docs/examples/report_1000_steps_all_strategies_20.html)
+
+Preview:
+
+![1000-step report preview](docs/examples/report_1000_steps_all_strategies_20.png)
 
 Run tests with the standard library runner:
 
@@ -461,3 +473,5 @@ A separate plain-language Axelrod-to-local description guide is maintained in [d
 A plain-language inventory of every implemented baseline strategy is maintained in [docs/implemented_strategies.md](docs/implemented_strategies.md).
 
 A plain-language explanation of the simulation lifecycle and match rules is maintained in [docs/game_model.md](docs/game_model.md).
+
+A concrete saved example run is documented in [docs/example_runs.md](docs/example_runs.md).

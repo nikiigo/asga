@@ -214,8 +214,8 @@ def _build_bundle(
 
 def _create_infographic(bundle: VisualizationBundle, path: Path, config: VisualizationConfig) -> None:
     """Build a static infographic summarizing the run."""
-    fig = plt.figure(figsize=(17, 10), facecolor=config.viz_bg_color)
-    grid = fig.add_gridspec(3, 4, height_ratios=[0.9, 1.15, 1.15], wspace=0.25, hspace=0.3)
+    fig = plt.figure(figsize=(18, 11.5), facecolor=config.viz_bg_color)
+    grid = fig.add_gridspec(3, 4, height_ratios=[1.15, 1.15, 1.0], width_ratios=[1.1, 1.1, 1.1, 1.35], wspace=0.28, hspace=0.34)
 
     ax_title = fig.add_subplot(grid[0, 0:2])
     ax_score = fig.add_subplot(grid[0, 2:4])
@@ -236,7 +236,7 @@ def _create_infographic(bundle: VisualizationBundle, path: Path, config: Visuali
     _draw_structure_panel(ax_structure, bundle, config)
     _draw_flow_panel(ax_flow, bundle, config)
 
-    fig.savefig(path, dpi=170, bbox_inches="tight")
+    fig.savefig(path, dpi=170, bbox_inches="tight", pad_inches=0.25)
     plt.close(fig)
 
 
@@ -397,8 +397,8 @@ def _draw_title_card(ax: plt.Axes, bundle: VisualizationBundle, config: Visualiz
         lw=2,
     )
     ax.add_patch(card)
-    ax.text(0.06, 0.82, config.viz_title_text, fontsize=28, fontweight="bold", color=config.viz_ink_color)
-    ax.text(0.06, 0.70, config.viz_subtitle_text, fontsize=12, color=config.viz_muted_color)
+    ax.text(0.06, 0.82, config.viz_title_text, fontsize=24, fontweight="bold", color=config.viz_ink_color)
+    ax.text(0.06, 0.71, config.viz_subtitle_text, fontsize=11, color=config.viz_muted_color)
     winning_strategy = (
         bundle.strategy_names.get(bundle.final.dominant_dna or "", bundle.final.dominant_dna or "n/a")
         if bundle.final.total_population_size > 0
@@ -414,8 +414,12 @@ def _draw_title_card(ax: plt.Axes, bundle: VisualizationBundle, config: Visualiz
         f"Winning strategy: {winning_strategy}",
         f"Dominant share: {bundle.final.dominant_strategy_share:.1%}",
     ]
-    for index, line in enumerate(lines):
-        ax.text(0.06, 0.54 - index * 0.09, line, fontsize=14, color="#1f1f1f")
+    left_lines = lines[:4]
+    right_lines = lines[4:]
+    for index, line in enumerate(left_lines):
+        ax.text(0.06, 0.54 - index * 0.12, line, fontsize=12.5, color="#1f1f1f")
+    for index, line in enumerate(right_lines):
+        ax.text(0.54, 0.54 - index * 0.12, line, fontsize=12.5, color="#1f1f1f")
 
 
 def _draw_overview_panel(ax: plt.Axes, bundle: VisualizationBundle, config: VisualizationConfig) -> None:
@@ -426,12 +430,13 @@ def _draw_overview_panel(ax: plt.Axes, bundle: VisualizationBundle, config: Visu
     ax.plot(bundle.steps, defection.values, color=defection.color, linewidth=3, label=defection.label)
     ax.fill_between(bundle.steps, cooperation.values, color=cooperation.color, alpha=0.12)
     ax.fill_between(bundle.steps, defection.values, color=defection.color, alpha=0.08)
-    ax.set_title(config.viz_behavior_title, loc="left", fontsize=18, fontweight="bold", color=config.viz_ink_color)
+    ax.set_title(config.viz_behavior_title, loc="left", fontsize=16, fontweight="bold", color=config.viz_ink_color)
     ax.set_xlabel("Step")
     ax.set_ylabel("Rate")
     ax.set_ylim(0, 1)
     ax.grid(alpha=0.2)
-    ax.legend(frameon=False, loc="upper right")
+    ax.tick_params(labelsize=9)
+    ax.legend(frameon=False, loc="upper right", fontsize=9)
 
 
 def _draw_strategy_area_panel(ax: plt.Axes, bundle: VisualizationBundle, config: VisualizationConfig) -> None:
@@ -442,24 +447,27 @@ def _draw_strategy_area_panel(ax: plt.Axes, bundle: VisualizationBundle, config:
         upper = [base + value for base, value in zip(cumulative, timeline.counts)]
         ax.fill_between(bundle.steps, lower, upper, color=timeline.color, alpha=0.8, label=timeline.name)
         cumulative = upper
-    ax.set_title("Strategy Landscape", loc="left", fontsize=18, fontweight="bold", color=config.viz_ink_color)
+    ax.set_title("Strategy Landscape", loc="left", fontsize=16, fontweight="bold", color=config.viz_ink_color)
     ax.set_xlabel("Step")
     ax.set_ylabel("Population count")
     ax.grid(alpha=0.15)
-    ax.legend(frameon=False, fontsize=9, loc="upper left", ncol=2)
+    ax.tick_params(labelsize=9)
+    ax.legend(frameon=False, fontsize=8, loc="upper left", ncol=2, columnspacing=0.8, handlelength=1.2)
 
 
 def _draw_final_population_panel(ax: plt.Axes, bundle: VisualizationBundle, config: VisualizationConfig) -> None:
     """Render final population ranking."""
     palette = _palette(config)
-    top_rows = bundle.final_rows[:10]
+    top_rows = bundle.final_rows[:8]
     labels = [str(row["strategy_name"]) for row in reversed(top_rows)]
     values = [int(row["population"]) for row in reversed(top_rows)]
     colors = [palette[index % len(palette)] for index in range(len(labels))][::-1]
     ax.barh(labels, values, color=colors)
-    ax.set_title("Final Population", loc="left", fontsize=18, fontweight="bold", color=config.viz_ink_color)
+    ax.set_title("Final Population", loc="left", fontsize=16, fontweight="bold", color=config.viz_ink_color)
     ax.set_xlabel("Population")
     ax.grid(axis="x", alpha=0.18)
+    ax.tick_params(axis="x", labelsize=9)
+    ax.tick_params(axis="y", labelsize=8)
 
 
 def _draw_structure_panel(ax: plt.Axes, bundle: VisualizationBundle, config: VisualizationConfig) -> None:
@@ -470,10 +478,11 @@ def _draw_structure_panel(ax: plt.Axes, bundle: VisualizationBundle, config: Vis
     ax.plot(bundle.steps, unique.values, color=unique.color, linewidth=3, label=unique.label)
     ax.plot(bundle.steps, entropy.values, color=entropy.color, linewidth=3, label=entropy.label)
     ax.plot(bundle.steps, dominant.values, color=dominant.color, linewidth=3, label=dominant.label)
-    ax.set_title(config.viz_structure_title, loc="left", fontsize=18, fontweight="bold", color=config.viz_ink_color)
+    ax.set_title(config.viz_structure_title, loc="left", fontsize=16, fontweight="bold", color=config.viz_ink_color)
     ax.set_xlabel("Step")
     ax.grid(alpha=0.18)
-    ax.legend(frameon=False, loc="upper right")
+    ax.tick_params(labelsize=9)
+    ax.legend(frameon=False, loc="upper right", fontsize=9)
 
 
 def _draw_flow_panel(ax: plt.Axes, bundle: VisualizationBundle, config: VisualizationConfig) -> None:
@@ -481,10 +490,11 @@ def _draw_flow_panel(ax: plt.Axes, bundle: VisualizationBundle, config: Visualiz
     ax.bar(bundle.steps, bundle.births, width=0.8, color=config.viz_cooperation_color, alpha=0.75, label="Births")
     ax.bar(bundle.steps, [-value for value in bundle.deaths], width=0.8, color=config.viz_defection_color, alpha=0.65, label="Deaths")
     ax.axhline(0, color=config.viz_ink_color, linewidth=1)
-    ax.set_title("Births and Deaths", loc="left", fontsize=18, fontweight="bold", color=config.viz_ink_color)
+    ax.set_title("Births and Deaths", loc="left", fontsize=16, fontweight="bold", color=config.viz_ink_color)
     ax.set_xlabel("Step")
     ax.grid(axis="y", alpha=0.18)
-    ax.legend(frameon=False, loc="upper right")
+    ax.tick_params(labelsize=9)
+    ax.legend(frameon=False, loc="upper right", fontsize=9)
 
 
 def _stat_card(label: str, value: str) -> str:

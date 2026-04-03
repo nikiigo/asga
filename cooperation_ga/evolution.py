@@ -317,7 +317,7 @@ class EvolutionEngine:
         if self.config.max_population_size is None:
             return 0, []
         current_size = self.population.total_size()
-        if current_size < self.config.max_population_size:
+        if current_size <= self.config.max_population_size:
             return 0, []
         num_to_kill = ceil(self.config.overflow_cull_rate * current_size)
         if num_to_kill <= 0:

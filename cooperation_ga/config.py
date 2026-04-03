@@ -124,6 +124,23 @@ def _filter_dataclass_kwargs(data: dict[str, Any], cls: type[ConfigT]) -> dict[s
     return {key: value for key, value in data.items() if key in allowed}
 
 
+def _reject_unknown_keys(
+    data: dict[str, Any],
+    cls: type[ConfigT],
+    *,
+    allowed_extra: set[str] | None = None,
+) -> None:
+    """Fail fast on unexpected configuration keys."""
+    allowed = {field.name for field in fields(cls)}
+    if allowed_extra is not None:
+        allowed |= allowed_extra
+    unknown = sorted(key for key in data if key not in allowed)
+    if unknown:
+        raise ValueError(
+            f"Unknown {cls.__name__} setting(s): {', '.join(unknown)}"
+        )
+
+
 def _require_config_keys(
     data: dict[str, Any],
     required_any: frozenset[str],
@@ -189,6 +206,7 @@ class VisualizationConfig:
         """Load visualization settings from a visualization JSON file."""
         data = _load_json_object(path)
         _require_config_keys(data, VISUALIZATION_JSON_KEYS, "VisualizationConfig")
+        _reject_unknown_keys(data, cls, allowed_extra=set(SIMULATION_JSON_KEYS))
         return cls(**_filter_dataclass_kwargs(data, cls))
 
     @classmethod
@@ -387,6 +405,7 @@ class SimulationConfig:
         """Load simulation settings from a simulation JSON file."""
         data = _load_json_object(path)
         _require_config_keys(data, SIMULATION_JSON_KEYS, "SimulationConfig")
+        _reject_unknown_keys(data, cls, allowed_extra=set(VISUALIZATION_JSON_KEYS))
         return cls(**_filter_dataclass_kwargs(data, cls))
 
     def to_json(self, path: str | Path) -> None:

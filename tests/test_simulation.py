@@ -479,6 +479,19 @@ class DnaTests(unittest.TestCase):
         self.assertEqual(visualization.top_strategies_to_plot, 7)
         self.assertEqual(visualization.viz_title_text, "Demo")
 
+    def test_simulation_config_rejects_unknown_keys(self) -> None:
+        path = Path("test_output_visuals/config_unknown_key.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            """{
+  "num_steps": 3,
+  "allow_same_dna_pairng": false
+}""",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "Unknown SimulationConfig setting"):
+            SimulationConfig.from_json(path)
+
     def test_render_only_config_is_rejected_as_simulation_config(self) -> None:
         with self.assertRaisesRegex(ValueError, "SimulationConfig JSON must include"):
             SimulationConfig.from_json("sample_render_config.json")
@@ -1894,7 +1907,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(metric.deaths_this_step, ceil(0.3 * 21))
         self.assertEqual(engine.population.total_size(), 21 - ceil(0.3 * 21))
 
-    def test_population_cap_with_full_score_correlation_kills_lowest_scores(self) -> None:
+    def test_population_cap_at_exact_limit_does_not_cull(self) -> None:
         config = self._engine_config(
             max_population_size=4,
             overflow_cull_rate=0.3,
@@ -1906,8 +1919,23 @@ class EngineTests(unittest.TestCase):
         for agent, score in zip(engine.population.agents, scores):
             agent.score = score
         deaths, _victims = engine._apply_population_cap()
+        self.assertEqual(deaths, 0)
+        self.assertEqual(sorted(agent.score for agent in engine.population.agents), [1.0, 2.0, 5.0, 10.0])
+
+    def test_population_cap_with_full_score_correlation_kills_lowest_scores(self) -> None:
+        config = self._engine_config(
+            max_population_size=4,
+            overflow_cull_rate=0.3,
+            overflow_cull_score_correlation=1.0,
+            initial_population={"ALLC": 5},
+        )
+        engine = EvolutionEngine.from_config(config)
+        scores = [10.0, 1.0, 5.0, 2.0, 8.0]
+        for agent, score in zip(engine.population.agents, scores):
+            agent.score = score
+        deaths, _victims = engine._apply_population_cap()
         self.assertEqual(deaths, 2)
-        self.assertEqual(sorted(agent.score for agent in engine.population.agents), [5.0, 10.0])
+        self.assertEqual(sorted(agent.score for agent in engine.population.agents), [5.0, 8.0, 10.0])
 
     def test_offspring_from_same_family_same_length_parents_is_valid(self) -> None:
         parent_a = baseline_dna_library()["TFT"]

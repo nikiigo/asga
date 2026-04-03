@@ -58,6 +58,8 @@ Run with trace-level plain-text event logging:
 .venv/bin/python main.py --config sample_config.json --trace
 ```
 
+During long runs, the CLI prints an explicit message when the simulation loop has finished and the program is writing results to disk. That export phase can take noticeable time on large runs, so this message confirms the process is still active and has not hung.
+
 Run tests with the standard library runner:
 
 ```bash

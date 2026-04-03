@@ -1435,6 +1435,20 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(metric.deaths_this_step, ceil(config.death_rate * 200))
         self.assertEqual(engine.population.total_size(), 200 - ceil(config.death_rate * 200))
 
+    def test_extinction_step_reports_empty_score_distribution(self) -> None:
+        config = self._engine_config(
+            num_steps=1,
+            initial_population={"ALLC": 4},
+            death_rate=1.0,
+        )
+        engine = EvolutionEngine.from_config(config)
+        metric = engine.run_step(1)
+        self.assertEqual(metric.total_population_size, 0)
+        self.assertEqual(metric.average_score, 0.0)
+        self.assertEqual(metric.best_score, 0.0)
+        self.assertEqual(metric.worst_score, 0.0)
+        self.assertEqual(metric.score_distribution, {})
+
     def test_non_reproduction_step_updates_scores_and_ages(self) -> None:
         config = self._engine_config(
             num_steps=1,

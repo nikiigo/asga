@@ -75,7 +75,6 @@ def build_generation_metrics(
     counts = population.dna_counts()
     labeled_counts = {dna.to_string(): count for dna, count in counts.items()}
     scores = score_snapshot if score_snapshot is not None else [agent.score for agent in population.agents]
-    scores = scores or [0.0]
     total_population = population.total_size()
     entropy = 0.0
     dominant_share = 0.0
@@ -99,9 +98,9 @@ def build_generation_metrics(
         population_count_per_dna=labeled_counts,
         dominant_dna=dominant_dna,
         dominant_group_size=dominant_group_size,
-        average_score=sum(scores) / len(scores),
-        best_score=max(scores),
-        worst_score=min(scores),
+        average_score=(sum(scores) / len(scores) if scores else 0.0),
+        best_score=(max(scores) if scores else 0.0),
+        worst_score=(min(scores) if scores else 0.0),
         score_distribution=_score_distribution(scores),
         overall_cooperation_rate=interactions.cooperation_rate,
         overall_defection_rate=interactions.defection_rate,
@@ -191,6 +190,8 @@ def export_final_population_summary_json(metrics: list[GenerationMetrics], path:
 
 def _score_distribution(scores: list[float]) -> dict[str, int]:
     """Bucket scores by floored integer value."""
+    if not scores:
+        return {}
     buckets: dict[str, int] = {}
     for score in scores:
         bucket = str(math.floor(score))

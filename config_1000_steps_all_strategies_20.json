@@ -103,7 +103,7 @@
   "reproduction_interval": 10,
   "offspring_per_pair": 1,
   "max_children_per_agent": 4,
-  "allow_self_pairing": true,
+  "allow_same_dna_pairing": true,
   "pairing_mode": "max_possible",
   "fixed_pairs_per_reproduction": null,
   "output_dir": "sample_output_1000_all_strategies_20",

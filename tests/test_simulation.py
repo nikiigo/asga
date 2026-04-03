@@ -1571,10 +1571,10 @@ class EngineTests(unittest.TestCase):
         allc = baseline_dna_library()["ALLC"].to_string()
         self.assertEqual(metric.population_count_per_dna[tft], 5)
         self.assertEqual(metric.population_count_per_dna[alld], 3)
-        self.assertEqual(metric.population_count_per_dna[allc], 1)
+        self.assertEqual(metric.population_count_per_dna[allc], 2)
         self.assertEqual(metric.dominant_dna, tft)
         self.assertEqual(metric.dominant_group_size, 5)
-        self.assertAlmostEqual(metric.dominant_strategy_share, 5 / 9)
+        self.assertAlmostEqual(metric.dominant_strategy_share, 5 / 10)
 
     def test_death_removes_bottom_half_percent_each_step(self) -> None:
         config = self._engine_config(
@@ -1710,7 +1710,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(metric.births_this_step, 1)
         self.assertEqual(engine.population.total_size(), 3)
 
-    def test_allow_self_pairing_false_blocks_same_dna_parents(self) -> None:
+    def test_allow_same_dna_pairing_false_blocks_same_dna_parents(self) -> None:
         config = self._engine_config(
             num_steps=1,
             reproduction_interval=1,
@@ -1718,14 +1718,14 @@ class EngineTests(unittest.TestCase):
             death_rate=0.0,
             mutation_genes_per_step=0.0,
             crossover_rate=0.0,
-            allow_self_pairing=False,
+            allow_same_dna_pairing=False,
         )
         engine = EvolutionEngine.from_config(config)
         metric = engine.run_step(1)
         self.assertTrue(metric.reproduction_step)
         self.assertEqual(metric.births_this_step, 0)
 
-    def test_allow_self_pairing_false_still_allows_different_dna_parents(self) -> None:
+    def test_allow_same_dna_pairing_false_still_allows_different_dna_parents(self) -> None:
         config = self._engine_config(
             num_steps=1,
             reproduction_interval=1,
@@ -1733,7 +1733,7 @@ class EngineTests(unittest.TestCase):
             death_rate=0.0,
             mutation_genes_per_step=0.0,
             crossover_rate=0.0,
-            allow_self_pairing=False,
+            allow_same_dna_pairing=False,
             pairing_mode="fixed",
             fixed_pairs_per_reproduction=1,
         )
@@ -1741,6 +1741,10 @@ class EngineTests(unittest.TestCase):
         metric = engine.run_step(1)
         self.assertTrue(metric.reproduction_step)
         self.assertEqual(metric.births_this_step, 1)
+
+    def test_allow_self_pairing_alias_maps_to_same_dna_pairing(self) -> None:
+        config = self._engine_config(allow_self_pairing=False)
+        self.assertFalse(config.allow_same_dna_pairing)
 
     def test_scores_reset_after_reproduction(self) -> None:
         config = self._engine_config(

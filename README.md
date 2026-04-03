@@ -350,7 +350,8 @@ The default seeded strategy list is:
 - `reproduction_interval`: run reproduction every N steps
 - `offspring_per_pair`: number of children created per selected parent pair
 - `max_children_per_agent`: lifetime child limit after which a parent dies
-- `allow_self_pairing`: whether both parents may share the same DNA; if `false`, the second parent must have different DNA from the first
+- `allow_same_dna_pairing`: whether both parents may share the same DNA; if `false`, the second parent must have different DNA from the first
+- `allow_self_pairing`: deprecated alias for `allow_same_dna_pairing`
 - `pairing_mode`: parent-pair count rule: `max_possible` or `fixed`
 - `fixed_pairs_per_reproduction`: requested number of parent pairs when `pairing_mode = "fixed"`; required in that mode, but the realized number can be lower if there are not enough eligible parents
 - `reset_scores_after_reproduction`: whether agent scores reset to zero after each reproduction step

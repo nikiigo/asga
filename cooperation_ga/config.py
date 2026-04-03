@@ -70,6 +70,7 @@ SIMULATION_JSON_KEYS = frozenset(
         "reproduction_interval",
         "offspring_per_pair",
         "max_children_per_agent",
+        "allow_same_dna_pairing",
         "allow_self_pairing",
         "pairing_mode",
         "fixed_pairs_per_reproduction",
@@ -245,7 +246,8 @@ class SimulationConfig:
     reproduction_interval: int = 10
     offspring_per_pair: int = 1
     max_children_per_agent: int = 4
-    allow_self_pairing: bool = True
+    allow_same_dna_pairing: bool = True
+    allow_self_pairing: bool | None = None
     pairing_mode: str = "max_possible"
     fixed_pairs_per_reproduction: int | None = None
     reset_scores_after_reproduction: bool = True
@@ -324,6 +326,8 @@ class SimulationConfig:
             raise ValueError("offspring_per_pair must be positive.")
         if self.max_children_per_agent <= 0:
             raise ValueError("max_children_per_agent must be positive.")
+        if self.allow_self_pairing is not None:
+            self.allow_same_dna_pairing = self.allow_self_pairing
         if self.pairing_mode == "fixed":
             if self.fixed_pairs_per_reproduction is None:
                 raise ValueError("fixed_pairs_per_reproduction must be set when pairing_mode is 'fixed'.")
@@ -387,4 +391,6 @@ class SimulationConfig:
 
     def to_json(self, path: str | Path) -> None:
         """Persist configuration to a JSON file."""
-        Path(path).write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
+        data = asdict(self)
+        data.pop("allow_self_pairing", None)
+        Path(path).write_text(json.dumps(data, indent=2), encoding="utf-8")

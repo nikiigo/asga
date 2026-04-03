@@ -269,7 +269,7 @@ class EvolutionEngine:
             available.remove(parent_a)
             parent_b = self._sample_parent(
                 available,
-                forbidden_dna=None if self.config.allow_self_pairing else parent_a.dna,
+                forbidden_dna=None if self.config.allow_same_dna_pairing else parent_a.dna,
             )
             if parent_b is None:
                 break
@@ -410,11 +410,10 @@ class EvolutionEngine:
                 f"scores=({match.score_a},{match.score_b}) "
                 f"coop=({match.coop_a},{match.coop_b}) defect=({match.defect_a},{match.defect_b})"
             )
-        if low_score_victims:
-            print(
-                f"  trace step={step} low_score_deaths="
-                + ", ".join(f"{agent_id}:{score:.2f}" for agent_id, score in low_score_victims)
-            )
+        print(
+            f"  trace step={step} low_score_deaths="
+            + ", ".join(f"{agent_id}:{score:.2f}" for agent_id, score in low_score_victims)
+        )
         for line in reproduction_trace:
             print(f"  trace step={step} {line}")
         if overflow_victims:
@@ -435,11 +434,15 @@ class EvolutionEngine:
         self,
         dna_a: StrategyDNA,
         dna_b: StrategyDNA,
+        mutation_probability: float | None = None,
     ) -> tuple[StrategyDNA, bool, int]:
         """Retry crossover and mutation until a valid child genome is produced."""
         for _ in range(1000):
             child_dna, did_crossover = self._create_offspring(dna_a, dna_b)
-            per_gene_mutation = min(1.0, self.config.mutation_genes_per_step / len(child_dna.genes))
+            if mutation_probability is None:
+                per_gene_mutation = min(1.0, self.config.mutation_genes_per_step / len(child_dna.genes))
+            else:
+                per_gene_mutation = mutation_probability
             try:
                 mutated = child_dna.mutate(per_gene_mutation, self.rng)
             except ValueError:

@@ -257,10 +257,6 @@ So, depending on the family, mutation or crossover can change things like:
 - a neural-network weight or bias
 
 That is why "gene" is family-specific in this project. It does not always mean "one table cell" or "one action". In some families it means a rule parameter, and in `NN` it means part of the encoded network.
-- `PROBABILISTIC_LOOKUP`
-- `FSM`
-- `SCRIPTED`
-- `COUNTER_TRIGGER`
 
 During a match, the strategy executor uses:
 

@@ -94,24 +94,20 @@ def export_visualizations(
     config: VisualizationConfig,
     prepared_export: PreparedExportData | None = None,
 ) -> None:
-    """Create infographic and HTML report assets for a simulation run."""
+    """Create HTML report assets for a simulation run."""
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
     status_path = destination / "status.txt"
     _write_render_status(status_path, "build_visualization_bundle", output_dir=str(destination), metrics_steps=len(metrics))
     print("Building visualization bundle...", flush=True)
     bundle = _build_bundle(metrics, config, prepared_export)
-    infographic_path = destination / "summary_infographic.png"
     report_path = destination / "report.html"
-    _write_render_status(status_path, "render_infographic", infographic_path=str(infographic_path))
-    print(f"Rendering summary infographic: {infographic_path}", flush=True)
-    _create_infographic(bundle, infographic_path, config)
     _write_render_status(status_path, "build_report_figures", report_path=str(report_path))
     print("Building interactive report figures...", flush=True)
     _write_render_status(status_path, "write_report", report_path=str(report_path))
     print(f"Writing HTML report: {report_path}", flush=True)
-    _create_html_report(bundle, report_path, infographic_path.name, config)
-    _write_render_status(status_path, "done", report_path=str(report_path), infographic_path=str(infographic_path))
+    _create_html_report(bundle, report_path, config)
+    _write_render_status(status_path, "done", report_path=str(report_path))
     print("Finished rendering visual outputs.", flush=True)
 
 
@@ -346,10 +342,9 @@ def _draw_flow_panel(ax: plt.Axes, bundle: VisualizationBundle, config: Visualiz
 def _create_html_report(
     bundle: VisualizationBundle,
     path: Path,
-    infographic_name: str,
     config: VisualizationConfig,
 ) -> None:
-    """Create an interactive Plotly HTML report plus static fallback asset."""
+    """Create an interactive Plotly HTML report."""
     winning_strategy = (
         bundle.strategy_names.get(bundle.final.dominant_dna or "", bundle.final.dominant_dna or "n/a")
         if bundle.final.total_population_size > 0
@@ -507,11 +502,8 @@ def _create_html_report(
         </div>
       </div>
       <div class="panel">
-        <h2>Static Export</h2>
-        <div class="media">
-          <img src="{infographic_name}" alt="Static infographic summary">
-        </div>
-        <div class="note">The report below is interactive. The PNG remains available as a static export for sharing.</div>
+        <h2>Interactive Report</h2>
+        <p>This report is the primary visualization output. Use the interactive charts below to inspect cooperation trends, dominant strategies, hybrid emergence, and the final population breakdown.</p>
       </div>
     </section>
     <section class="grid">
@@ -546,6 +538,7 @@ def _create_html_report(
       </div>
       <div class="panel">
         <h2>Final Strategy Catalog</h2>
+        <p class="note">`Population` is the number of living agents with that exact DNA. `DNA` is the raw encoded genome. `Explanation` is the decoded behavior in plain language: for example lookup families describe initial move and response table, trigger families describe trigger states and forgiveness, count-based families describe thresholds and windows, scripted families describe the named algorithm, and `NN` describes the encoded neural strategy.</p>
         {final_table_fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})}
       </div>
     </section>

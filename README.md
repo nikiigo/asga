@@ -91,7 +91,7 @@ If you want to run the Axelrod reference-verification tests, install the develop
 - Mutation interpreted as expected mutated genes per offspring genome
 - Configurable maximum population cap with overflow culling blended between random removal and low-score pressure
 - Per-step metrics with CSV and JSON export, including `DNA -> count`, dominant DNA, dominant group size, and dominant share
-- Static infographic PNG and HTML report export
+- Interactive HTML report export
 - Seeded initialization using deterministic baseline DNA plus random DNA
 
 ## Baseline Configuration
@@ -361,7 +361,7 @@ The default seeded strategy list is:
 - `output_dir`: directory for metrics and optional visual outputs
 - `export_csv`: whether to write CSV exports
 - `export_json`: whether to write JSON exports
-- `export_visuals`: whether to render the infographic PNG and HTML report during the run
+- `export_visuals`: whether to render the HTML report during the run
 
 Checkpoint behavior:
 
@@ -388,8 +388,8 @@ Visualization settings are:
 - `viz_unique_color`: color for unique-strategy count series
 - `viz_entropy_color`: color for diversity-entropy series
 - `viz_dominant_color`: color for dominant-share series
-- `viz_title_text`: title used on the static infographic
-- `viz_subtitle_text`: subtitle used on the static infographic
+- `viz_title_text`: compatibility field for report/visual title wording
+- `viz_subtitle_text`: compatibility field for report subtitle wording
 - `viz_behavior_title`: heading for the behavior-over-time panel
 - `viz_structure_title`: heading for the population-structure panel
 - `viz_leader_title`: compatibility field for leader-summary wording
@@ -407,7 +407,6 @@ The simulator exports generated files under the configured `output_dir`, for exa
 - `sample_output/population_breakdown.json`
 - `sample_output/final_population_summary.csv`
 - `sample_output/final_population_summary.json`
-- `sample_output/summary_infographic.png`
 - `sample_output/report.html`
 
 These files are visualization-ready and include:
@@ -416,7 +415,7 @@ These files are visualization-ready and include:
 - human-readable strategy explanations decoded from raw DNA
 - stable output names for non-baseline DNA, labeled as `Hybrid1`, `Hybrid2`, and so on
 - a final-step ordered strategy summary with strategy name, raw DNA, population, and explanation
-- an interactive Plotly report in `report.html`, with the PNG kept as a static export
+- an interactive Plotly report in `report.html`
 
 The primary success criterion is population spread: the winning strategy is the DNA group with the largest number of living agents at the final step.
 
@@ -449,7 +448,7 @@ Example:
 .venv/bin/python main.py --config config_1000_steps_all_strategies_20_fast.json --render-config config_1000_steps_all_strategies_20_render_static.json --render-from-metrics sample_output_1000_all_strategies_20_fast/metrics.json
 ```
 
-For very long runs, render the infographic and HTML report afterward from saved metrics:
+For very long runs, render the HTML report afterward from saved metrics:
 
 ```bash
 .venv/bin/python main.py --config config_1000_steps_all_strategies_20_fast.json --render-config config_1000_steps_all_strategies_20_render_static.json --render-from-metrics sample_output_1000_all_strategies_20_fast/metrics.json

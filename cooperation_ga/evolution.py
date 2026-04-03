@@ -133,7 +133,7 @@ class EvolutionEngine:
                 overflow_note = ""
                 if (
                     self.config.max_population_size is not None
-                    and starting_population >= self.config.max_population_size
+                    and starting_population > self.config.max_population_size
                 ):
                     overflow_note = (
                         f", overflow_cap={self.config.max_population_size}, "

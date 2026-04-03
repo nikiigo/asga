@@ -276,7 +276,7 @@ class SimulationConfig:
     output_dir: str = "sample_output"
     export_csv: bool = True
     export_json: bool = True
-    export_visuals: bool = True
+    export_visuals: bool = False
 
     def __post_init__(self) -> None:
         """Validate supported settings."""

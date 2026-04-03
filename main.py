@@ -37,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--render-config",
         type=Path,
         default=None,
-        help="Optional JSON file with visualization-only settings. Defaults to visualization settings derived from --config.",
+        help="Optional JSON file with visualization-only settings. Defaults to built-in visualization defaults when omitted.",
     )
     parser.add_argument(
         "--verbose",

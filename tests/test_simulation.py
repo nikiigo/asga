@@ -256,6 +256,11 @@ def _from_ref_action(action: _RefAction) -> int:
 
 
 class DnaTests(unittest.TestCase):
+    def test_simulation_config_defaults_are_constructible(self) -> None:
+        config = SimulationConfig()
+        self.assertFalse(config.export_visuals)
+        self.assertEqual(config.output_dir, "sample_output")
+
     def test_mutation_preserves_genome_at_probability_zero(self) -> None:
         dna = StrategyDNA.from_action_string("CCDDD")
         mutated = dna.mutate(0.0, Random(0))

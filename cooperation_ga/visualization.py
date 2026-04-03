@@ -84,6 +84,8 @@ def export_visualizations(
     prepared_export: PreparedExportData | None = None,
 ) -> None:
     """Create static visualization assets from saved metrics."""
+    if not metrics:
+        raise ValueError("Cannot render visualizations from an empty metrics sequence.")
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
     status_path = destination / "status.txt"

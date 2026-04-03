@@ -512,6 +512,20 @@ class DnaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unknown SimulationConfig setting"):
             SimulationConfig.from_json(path)
 
+    def test_simulation_config_rejects_conflicting_pairing_aliases(self) -> None:
+        path = Path("test_output_visuals/config_conflicting_pairing_aliases.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            """{
+  "num_steps": 3,
+  "allow_same_dna_pairing": true,
+  "allow_self_pairing": false
+}""",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "Conflicting pairing settings"):
+            SimulationConfig.from_json(path)
+
     def test_render_only_config_is_rejected_as_simulation_config(self) -> None:
         with self.assertRaisesRegex(ValueError, "SimulationConfig JSON must include"):
             SimulationConfig.from_json("sample_render_config.json")
@@ -1595,6 +1609,17 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(status["infographic_path"], str(output_dir / "summary_infographic.png"))
         self.assertTrue((output_dir / "summary_infographic.png").exists())
         self.assertFalse((output_dir / "report.html").exists())
+
+    def test_render_from_metrics_rejects_empty_metrics(self) -> None:
+        output_dir = Path("test_output_visuals_empty_metrics")
+        from cooperation_ga.visualization import export_visualizations
+
+        with self.assertRaisesRegex(ValueError, "empty metrics sequence"):
+            export_visualizations(
+                [],
+                output_dir,
+                VisualizationConfig(output_dir=str(output_dir), top_strategies_to_plot=5),
+            )
 
     def test_run_writes_status_file(self) -> None:
         output_dir = Path("test_output_status")

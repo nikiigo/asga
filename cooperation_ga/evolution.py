@@ -295,7 +295,7 @@ class EvolutionEngine:
         return births, mutation_count, crossover_count, trace_lines
 
     def _apply_population_cap(self) -> tuple[int, list[tuple[int, float]]]:
-        """Cull agents when the configured max population size is reached or exceeded."""
+        """Cull agents when the configured max population size is exceeded."""
         if self.config.max_population_size is None:
             return 0, []
         current_size = self.population.total_size()

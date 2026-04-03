@@ -411,6 +411,15 @@ class SimulationConfig:
         data = _load_json_object(path)
         _require_config_keys(data, SIMULATION_JSON_KEYS, "SimulationConfig")
         _reject_unknown_keys(data, cls, allowed_extra=set(VISUALIZATION_JSON_KEYS))
+        if (
+            "allow_self_pairing" in data
+            and "allow_same_dna_pairing" in data
+            and data["allow_self_pairing"] != data["allow_same_dna_pairing"]
+        ):
+            raise ValueError(
+                "Conflicting pairing settings: allow_self_pairing and "
+                "allow_same_dna_pairing must match when both are provided."
+            )
         return cls(**_filter_dataclass_kwargs(data, cls))
 
     def to_json(self, path: str | Path) -> None:

@@ -110,10 +110,11 @@ def main() -> None:
     engine.export(metrics)
     print("Finished writing results.", flush=True)
     final = metrics[-1]
+    winning_dna = final.dominant_dna if final.total_population_size > 0 else "no surviving strategy"
     print(f"Steps: {len(metrics)}", flush=True)
     print(f"Final unique strategies: {final.num_unique_strategies}", flush=True)
     print(f"Final population size: {final.total_population_size}", flush=True)
-    print(f"Winning DNA: {final.dominant_dna}", flush=True)
+    print(f"Winning DNA: {winning_dna}", flush=True)
     print(f"Winning group size: {final.dominant_group_size}", flush=True)
     print(f"Final cooperation rate: {final.overall_cooperation_rate:.3f}", flush=True)
     print(f"Final dominant share: {final.dominant_strategy_share:.3f}", flush=True)

@@ -249,6 +249,11 @@ def _draw_title_card(ax: plt.Axes, bundle: VisualizationBundle, config: Visualiz
     ax.add_patch(card)
     ax.text(0.06, 0.82, config.viz_title_text, fontsize=28, fontweight="bold", color=config.viz_ink_color)
     ax.text(0.06, 0.70, config.viz_subtitle_text, fontsize=12, color=config.viz_muted_color)
+    winning_strategy = (
+        bundle.strategy_names.get(bundle.final.dominant_dna or "", bundle.final.dominant_dna or "n/a")
+        if bundle.final.total_population_size > 0
+        else "no surviving strategy"
+    )
     lines = [
         f"Initial population: {bundle.initial.total_population_size}",
         f"Final population: {bundle.final.total_population_size}",
@@ -256,7 +261,7 @@ def _draw_title_card(ax: plt.Axes, bundle: VisualizationBundle, config: Visualiz
         f"Final cooperation: {bundle.final.overall_cooperation_rate:.1%}",
         f"Hybrids created: {bundle.hybrid_total_count}",
         f"Top hybrid: {bundle.top_hybrid_row['strategy_name']} ({bundle.top_hybrid_row['population']})" if bundle.top_hybrid_row else "Top hybrid: none",
-        f"Winning strategy: {bundle.strategy_names.get(bundle.final.dominant_dna or '', bundle.final.dominant_dna or 'n/a')}",
+        f"Winning strategy: {winning_strategy}",
         f"Dominant share: {bundle.final.dominant_strategy_share:.1%}",
     ]
     for index, line in enumerate(lines):
@@ -339,6 +344,11 @@ def _create_html_report(
     config: VisualizationConfig,
 ) -> None:
     """Create an interactive Plotly HTML report plus static fallback asset."""
+    winning_strategy = (
+        bundle.strategy_names.get(bundle.final.dominant_dna or "", bundle.final.dominant_dna or "n/a")
+        if bundle.final.total_population_size > 0
+        else "no surviving strategy"
+    )
     overview_fig = _plotly_overview_figure(bundle, config)
     timeline_fig = _plotly_timeline_figure(bundle, config)
     final_population_fig = _plotly_final_population_figure(bundle, config)
@@ -484,7 +494,7 @@ def _create_html_report(
           <div class="stat"><div class="label">Steps</div><div class="metric">{len(bundle.metrics)}</div></div>
           <div class="stat"><div class="label">Initial Population</div><div class="metric">{bundle.initial.total_population_size}</div></div>
           <div class="stat"><div class="label">Final Population</div><div class="metric">{bundle.final.total_population_size}</div></div>
-          <div class="stat"><div class="label">Winning Strategy</div><div class="metric" style="font-size:22px">{bundle.strategy_names.get(bundle.final.dominant_dna or '', bundle.final.dominant_dna or 'n/a')}</div></div>
+          <div class="stat"><div class="label">Winning Strategy</div><div class="metric" style="font-size:22px">{winning_strategy}</div></div>
           <div class="stat"><div class="label">Final Cooperation</div><div class="metric">{bundle.final.overall_cooperation_rate:.1%}</div></div>
           <div class="stat"><div class="label">Hybrids Created</div><div class="metric">{bundle.hybrid_total_count}</div></div>
           <div class="stat"><div class="label">Top Hybrid</div><div class="metric" style="font-size:22px">{bundle.top_hybrid_row['strategy_name'] if bundle.top_hybrid_row else 'None'}</div></div>

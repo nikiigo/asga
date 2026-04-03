@@ -6,6 +6,7 @@ from contextlib import redirect_stdout
 from enum import Enum
 import importlib.util
 from io import StringIO
+import json
 from math import erfc, sqrt
 from math import ceil
 from pathlib import Path
@@ -1184,6 +1185,82 @@ class EngineTests(unittest.TestCase):
         self.assertIn("strategy_explanation", (output_dir / "population_breakdown.csv").read_text(encoding="utf-8"))
         self.assertIn("strategy_name", (output_dir / "final_population_summary.csv").read_text(encoding="utf-8"))
         self.assertNotIn("Winning DNA", (output_dir / "report.html").read_text(encoding="utf-8"))
+
+    def test_visual_exports_print_progress(self) -> None:
+        output_dir = Path("test_output_visuals_progress")
+        config = SimulationConfig(
+            num_steps=1,
+            initial_population_size=12,
+            initial_num_strategies=3,
+            random_seed=11,
+            output_dir=str(output_dir),
+            export_csv=False,
+            export_json=False,
+            export_visuals=True,
+        )
+        engine = EvolutionEngine.from_config(
+            config,
+            VisualizationConfig(output_dir=str(output_dir), top_strategies_to_plot=5),
+        )
+        stdout = StringIO()
+        with redirect_stdout(stdout):
+            metrics = engine.run()
+            engine.export(metrics)
+        text = stdout.getvalue()
+        self.assertIn("Building visualization bundle...", text)
+        self.assertIn("Rendering summary infographic:", text)
+        self.assertIn("Building interactive report figures...", text)
+        self.assertIn("Writing HTML report:", text)
+        self.assertIn("Finished rendering visual outputs.", text)
+        status = json.loads((output_dir / "status.txt").read_text(encoding="utf-8"))
+        self.assertEqual(status["phase"], "done")
+        self.assertEqual(status["target_dir"], str(output_dir))
+
+    def test_run_writes_status_file(self) -> None:
+        output_dir = Path("test_output_status")
+        config = self._engine_config(
+            num_steps=2,
+            output_dir=str(output_dir),
+            export_csv=False,
+            export_json=False,
+            export_visuals=False,
+        )
+        engine = EvolutionEngine.from_config(config)
+        metrics = engine.run()
+        engine.export(metrics)
+        status = json.loads((output_dir / "status.txt").read_text(encoding="utf-8"))
+        self.assertEqual(status["phase"], "done")
+        self.assertEqual(status["metrics_steps"], 2)
+        self.assertEqual(status["target_dir"], str(output_dir))
+
+    def test_visual_outputs_can_use_separate_render_directory(self) -> None:
+        metrics_dir = Path("test_output_status")
+        render_dir = Path("test_output_visuals_progress")
+        config = SimulationConfig(
+            num_steps=1,
+            initial_population_size=12,
+            initial_num_strategies=3,
+            random_seed=12,
+            output_dir=str(metrics_dir),
+            export_csv=True,
+            export_json=True,
+            export_visuals=True,
+        )
+        engine = EvolutionEngine.from_config(
+            config,
+            VisualizationConfig(output_dir=str(render_dir), top_strategies_to_plot=5),
+        )
+        metrics = engine.run()
+        engine.export(metrics)
+
+        self.assertTrue((metrics_dir / "metrics.json").exists())
+        self.assertTrue((metrics_dir / "population_breakdown.json").exists())
+        self.assertFalse((metrics_dir / "report.html").exists())
+        self.assertFalse((metrics_dir / "summary_infographic.png").exists())
+        self.assertTrue((render_dir / "report.html").exists())
+        self.assertTrue((render_dir / "summary_infographic.png").exists())
+        status = json.loads((render_dir / "status.txt").read_text(encoding="utf-8"))
+        self.assertEqual(status["phase"], "done")
 
     def test_explicit_initial_population_is_respected(self) -> None:
         config = self._engine_config(

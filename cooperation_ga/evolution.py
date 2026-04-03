@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from math import ceil
 from random import Random
 from dataclasses import dataclass
+from pathlib import Path
 
 from cooperation_ga.config import SimulationConfig, VisualizationConfig
 from cooperation_ga.dna import baseline_name_by_dna_string
@@ -31,6 +33,17 @@ class EvolutionEngine:
     visualization_config: VisualizationConfig
     population: Population
     rng: Random
+
+    def _status_path(self) -> Path:
+        """Return the main status-file path for this run."""
+        return Path(self.config.output_dir) / "status.txt"
+
+    def _write_status(self, phase: str, **payload: object) -> None:
+        """Write a plain-text JSON status snapshot for external monitoring."""
+        path = self._status_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = {"phase": phase, **payload}
+        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
     @classmethod
     def from_config(
@@ -98,6 +111,13 @@ class EvolutionEngine:
         for step in range(1, total_steps + 1):
             starting_population = self.population.total_size()
             starting_unique = len(self.population.dna_counts())
+            self._write_status(
+                "simulation",
+                current_step=step,
+                total_steps=total_steps,
+                start_population=starting_population,
+                start_unique_strategies=starting_unique,
+            )
             metric = self.run_step(step)
             if self.config.verbose or self.config.debug or self.config.trace:
                 print(
@@ -136,24 +156,37 @@ class EvolutionEngine:
             history.append(metric)
             if self.config.checkpoint_interval > 0 and step % self.config.checkpoint_interval == 0:
                 self.export_checkpoint(history, step)
+        self._write_status("simulation_complete", total_steps=total_steps, final_population=self.population.total_size())
         return history
 
     def export(self, metrics: list[GenerationMetrics]) -> None:
         """Export recorded metrics in configured formats."""
-        self._export_to_directory(metrics, self.config.output_dir)
+        self._write_status("export", target_dir=self.config.output_dir, metrics_steps=len(metrics))
+        self._export_to_directory(
+            metrics,
+            self.config.output_dir,
+            visual_output_dir=self.visualization_config.output_dir,
+        )
+        self._write_status("done", target_dir=self.config.output_dir, metrics_steps=len(metrics))
 
     def export_checkpoint(self, metrics: list[GenerationMetrics], step: int) -> None:
         """Export an intermediate checkpoint snapshot."""
         checkpoint_dir = f"{self.config.output_dir}/checkpoints/step_{step:05d}"
+        self._write_status("checkpoint", step=step, checkpoint_dir=checkpoint_dir)
         print(
             f"Writing checkpoint for step {step} to {checkpoint_dir}..."
             " The program is still running and has not hung.",
             flush=True,
         )
-        self._export_to_directory(metrics, checkpoint_dir)
+        self._export_to_directory(metrics, checkpoint_dir, visual_output_dir=checkpoint_dir)
         print(f"Checkpoint written: {checkpoint_dir}", flush=True)
 
-    def _export_to_directory(self, metrics: list[GenerationMetrics], output_dir: str) -> None:
+    def _export_to_directory(
+        self,
+        metrics: list[GenerationMetrics],
+        output_dir: str,
+        visual_output_dir: str | None = None,
+    ) -> None:
         """Export recorded metrics in configured formats to a specific directory."""
         if self.config.export_csv and metrics:
             export_metrics_csv(metrics, f"{output_dir}/metrics.csv")
@@ -166,7 +199,7 @@ class EvolutionEngine:
         if self.config.export_visuals and metrics:
             from cooperation_ga.visualization import export_visualizations
 
-            export_visualizations(metrics, output_dir, self.visualization_config)
+            export_visualizations(metrics, visual_output_dir or output_dir, self.visualization_config)
 
     def _apply_scores(self, score_by_agent_id: dict[int, float]) -> None:
         """Add the current step's match scores to each agent."""

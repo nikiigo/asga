@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import os
 from typing import Sequence
@@ -95,11 +96,29 @@ def export_visualizations(
     """Create infographic and HTML report assets for a simulation run."""
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
+    status_path = destination / "status.txt"
+    _write_render_status(status_path, "build_visualization_bundle", output_dir=str(destination), metrics_steps=len(metrics))
+    print("Building visualization bundle...", flush=True)
     bundle = _build_bundle(metrics, config)
     infographic_path = destination / "summary_infographic.png"
     report_path = destination / "report.html"
+    _write_render_status(status_path, "render_infographic", infographic_path=str(infographic_path))
+    print(f"Rendering summary infographic: {infographic_path}", flush=True)
     _create_infographic(bundle, infographic_path, config)
+    _write_render_status(status_path, "build_report_figures", report_path=str(report_path))
+    print("Building interactive report figures...", flush=True)
+    _write_render_status(status_path, "write_report", report_path=str(report_path))
+    print(f"Writing HTML report: {report_path}", flush=True)
     _create_html_report(bundle, report_path, infographic_path.name, config)
+    _write_render_status(status_path, "done", report_path=str(report_path), infographic_path=str(infographic_path))
+    print("Finished rendering visual outputs.", flush=True)
+
+
+def _write_render_status(path: Path, phase: str, **payload: object) -> None:
+    """Write a plain-text JSON render status snapshot."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = {"phase": phase, **payload}
+    path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
 
 def _build_bundle(metrics: list[GenerationMetrics], config: VisualizationConfig) -> VisualizationBundle:

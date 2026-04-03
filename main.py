@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from cooperation_ga.config import SimulationConfig, VisualizationConfig
 from cooperation_ga.evolution import EvolutionEngine
 from cooperation_ga.metrics import final_population_summary_rows, load_metrics_json
+
+
+def _write_status(path: Path, phase: str, **payload: object) -> None:
+    """Write a plain-text JSON status snapshot."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = {"phase": phase, **payload}
+    path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -67,6 +75,12 @@ def main() -> None:
     if args.render_from_metrics is not None:
         from cooperation_ga.visualization import export_visualizations
 
+        _write_status(
+            Path(visualization_config.output_dir) / "status.txt",
+            "load_metrics",
+            metrics_path=str(args.render_from_metrics),
+            output_dir=visualization_config.output_dir,
+        )
         print(
             f"Loading metrics from {args.render_from_metrics} and writing rendered outputs to "
             f"{visualization_config.output_dir}...",
@@ -78,6 +92,7 @@ def main() -> None:
         print(f"Visual report: {Path(visualization_config.output_dir) / 'report.html'}", flush=True)
         return
     engine = EvolutionEngine.from_config(config, visualization_config)
+    _write_status(Path(config.output_dir) / "status.txt", "starting", total_steps=config.num_steps, output_dir=config.output_dir)
     print(
         f"Starting simulation for {config.num_steps} steps. Output directory: {config.output_dir}",
         flush=True,

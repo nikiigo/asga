@@ -5,6 +5,8 @@ __pycache__/
 .mypy_cache/
 
 test_output_visuals/
+test_output_visuals_progress/
+test_output_status/
 test_output_visuals_no_animation/
 sample_output/
 sample_output_*/

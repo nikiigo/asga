@@ -1,0 +1,23 @@
+{
+  "output_dir": "sample_output",
+  "top_strategies_to_plot": 10,
+  "viz_palette": ["#d1495b", "#00798c", "#edae49", "#30638e", "#003d5b", "#66a182", "#9c6644", "#6d597a", "#bc4749", "#7f5539"],
+  "viz_bg_color": "#f6efe7",
+  "viz_panel_color": "#fffaf5",
+  "viz_ink_color": "#003d5b",
+  "viz_muted_color": "#5c5c5c",
+  "viz_accent_color": "#d1495b",
+  "viz_cooperation_color": "#00798c",
+  "viz_defection_color": "#d1495b",
+  "viz_unique_color": "#edae49",
+  "viz_entropy_color": "#30638e",
+  "viz_dominant_color": "#bc4749",
+  "viz_title_text": "Evolution of Cooperation",
+  "viz_subtitle_text": "Genetic algorithms in the repeated Prisoner's Dilemma",
+  "viz_behavior_title": "Behavioral balance over time",
+  "viz_structure_title": "Population structure",
+  "viz_leader_title": "Leading DNA at the finish",
+  "viz_report_title": "Evolution of Cooperation Report",
+  "viz_report_heading": "Evolution of Cooperation",
+  "viz_report_description": "Agent-based Prisoner's Dilemma simulation with per-step pairing, score-based selection pressure, scheduled reproduction, and long-run DNA dynamics."
+}

@@ -1,0 +1,101 @@
+# Implemented Strategies
+
+This document describes every baseline strategy currently implemented in the project in plain language.
+
+Scope:
+
+- these are the strategies defined in `baseline_dna_library()`
+- all of them are encoded as DNA and can be used directly in simulations
+- the baseline registry uses canonical names only: one raw DNA maps to one strategy name
+
+Reference:
+
+- code source: [dna.py](../cooperation_ga/dna.py)
+- Axelrod compatibility map: [axelrod_strategy_mapping.md](axelrod_strategy_mapping.md)
+
+## Deterministic Lookup Strategies
+
+These strategies choose their action from a fixed response table.
+
+| Shortname | DNA family | Default seeded setup | Raw DNA | Human explanation |
+| --- | --- | --- | --- | --- |
+| `ALLC` | `LOOKUP` | Yes | `0010000000001100000100000000` | Always cooperates. It starts with cooperation and keeps cooperating no matter what the opponent does. |
+| `ALLD` | `LOOKUP` | Yes | `0010000000001100010101010101` | Always defects. It starts by defecting and never switches to cooperation. |
+| `TFT` | `LOOKUP` | Yes | `0010000000001100000100010001` | Tit For Tat. It starts by cooperating, then copies the opponent's last move. |
+| `TF2T` | `LOOKUP` | Yes | `0010000000100100001000000000000100010000000000010001` | Two Tits For Tat. It starts cooperatively and only defects after repeated recent defections, making it more forgiving than TFT. |
+| `PAVLOV` | `LOOKUP` | Yes | `0010000000001100000100010100` | Win-Stay Lose-Shift. It repeats behavior after a good outcome and switches after a bad one, so it can recover from accidental mutual defection. |
+| `SUSPICIOUS_TFT` | `LOOKUP` | Yes | `0010000000001100010100010001` | A suspicious Tit For Tat variant. It opens with defection, then mirrors the opponent after that. |
+| `SUSPICIOUS_PAVLOV` | `LOOKUP` | Yes | `0010000000001100010100010100` | Pavlov with a suspicious opening. It starts by defecting, then follows the Pavlov response rule afterward. |
+| `REVERSE_TFT` | `LOOKUP` | No | `0010000000001100000101010001` | Reverse Tit For Tat. It tends to do the opposite of the cooperative part of TFT, punishing even cooperative situations. |
+| `FORGIVER` | `LOOKUP` | Yes | `0010000000001100000100000001` | Mostly cooperative. It cooperates in every memory-1 state except persistent mutual defection, where it defects. |
+| `DEFENSIVE` | `LOOKUP` | Yes | `0010000000001100010101010100` | Mostly defensive. It defects by default and only softens after mutual defection. |
+| `HARD_REVENGER` | `LOOKUP` | No | `0010000000001100000101010101` | Starts cooperatively but defects in every remembered state after that. It is effectively a harsh one-step revenger. |
+| `TESTER` | `LOOKUP` | Yes | `0010000000001100010100000100` | A probe-like heuristic. It opens with defection, then tries to cooperate in some cases to see whether cooperation can be restored. |
+
+## Probabilistic Lookup Strategies
+
+These strategies use encoded cooperation probabilities rather than fully deterministic responses.
+
+| Shortname | DNA family | Default seeded setup | Raw DNA | Human explanation |
+| --- | --- | --- | --- | --- |
+| `RANDOM` | `PROBABILISTIC_LOOKUP` | No | `0010001100101010100000000110000000100000001000000010000000` | Pure random play with about a 50% chance to cooperate on every move, regardless of history. |
+| `JOSS` | `PROBABILISTIC_LOOKUP` | Yes | `0010001100101010111111110111100110000000001110011000000000` | Joss behaves like Tit For Tat most of the time, but sometimes defects even after opponent cooperation. |
+| `GTFT` | `PROBABILISTIC_LOOKUP` | Yes | `0010001100101010111111110111111111010101011111111101010101` | Generous Tit For Tat. It starts cooperatively and often forgives defections instead of retaliating every time. |
+
+## Trigger Strategies
+
+These strategies cooperate until a trigger condition is met, then switch into punishment behavior.
+
+| Shortname | DNA family | Default seeded setup | Raw DNA | Human explanation |
+| --- | --- | --- | --- | --- |
+| `GRUDGER` | `TRIGGER` | No | `0010000100010010000001010100000000` | Cooperates until the opponent defects, then defects forever. This is also the canonical implementation used for Grim Trigger behavior. |
+| `SHUBIK_COUNTER` | `COUNTER_TRIGGER` | No | `0010011000100100000001010100000001000000011111111110` | A counter-based trigger strategy. It cooperates until betrayed, then retaliates for a punish period that can grow over time. |
+
+## Finite State Machine Strategies
+
+These strategies carry an internal state and transition between states based on the opponent's last move.
+
+| Shortname | DNA family | Default seeded setup | Raw DNA | Human explanation |
+| --- | --- | --- | --- | --- |
+| `ALTERNATOR` | `FSM` | Yes | `00100100000111000000100001001010010000000000` | Alternates between cooperation and defection every turn. |
+| `CYCLER_CCD` | `FSM` | No | `001001000010011000010000000010000101010010100000000000` | Repeats a three-turn pattern: cooperate, cooperate, defect. |
+| `CYCLER_CCCD` | `FSM` | No | `0010010000110000000110000000100001000100001001011010110000000000` | Repeats a four-turn pattern: cooperate, cooperate, cooperate, defect. |
+| `CYCLER_CCCCD` | `FSM` | No | `00100100001110100010000000001000010001000010000110001101100011000000000000` | Repeats a five-turn pattern: cooperate, cooperate, cooperate, cooperate, defect. |
+| `SUSPICIOUS_ALTERNATOR` | `FSM` | No | `00100100000111000100100000001000010100001000` | Alternator with a suspicious first move. It opens by defecting and then alternates. |
+| `APPEASER` | `FSM` | No | `00100100000111000000100000000010010100100000` | Cooperates while things are peaceful. After being hit by a defection it moves into a punitive phase, then returns to cooperation. |
+| `PROBER_LIKE` | `FSM` | No | `00100100000111000100100000001000010000100001` | A project-local finite-state probing strategy. It starts suspiciously and then settles into a cooperative state after probing. |
+
+## Count-Based Strategies
+
+These strategies summarize recent opponent behavior and compare it to a threshold.
+
+| Shortname | DNA family | Default seeded setup | Raw DNA | Human explanation |
+| --- | --- | --- | --- | --- |
+| `GO_BY_MAJORITY` | `COUNT_BASED` | No | `00100010000101100000000000100000000110` | Cooperates when the opponent has cooperated at least about half the time over the full history. This is also the canonical implementation used for Soft Go By Majority behavior. |
+| `HARD_GO_BY_MAJORITY` | `COUNT_BASED` | No | `00100010000101100000000000100000010110` | Requires a stricter-than-half cooperation rate before it cooperates. |
+| `GO_BY_MAJORITY_5` | `COUNT_BASED` | No | `00100010000101100000000101100000000110` | Majority rule over the last 5 rounds instead of full history. |
+| `GO_BY_MAJORITY_10` | `COUNT_BASED` | No | `00100010000101100000001010100000000110` | Majority rule over the last 10 rounds. |
+| `GO_BY_MAJORITY_20` | `COUNT_BASED` | No | `00100010000101100000010100100000000110` | Majority rule over the last 20 rounds. |
+| `GO_BY_MAJORITY_40` | `COUNT_BASED` | No | `00100010000101100000101000100000000110` | Majority rule over the last 40 rounds. |
+| `HARD_GO_BY_MAJORITY_5` | `COUNT_BASED` | No | `00100010000101100000000101100000010110` | Hard majority rule over the last 5 rounds. |
+| `HARD_GO_BY_MAJORITY_10` | `COUNT_BASED` | No | `00100010000101100000001010100000010110` | Hard majority rule over the last 10 rounds. |
+| `HARD_GO_BY_MAJORITY_20` | `COUNT_BASED` | No | `00100010000101100000010100100000010110` | Hard majority rule over the last 20 rounds. |
+| `HARD_GO_BY_MAJORITY_40` | `COUNT_BASED` | No | `00100010000101100000101000100000010110` | Hard majority rule over the last 40 rounds. |
+
+## Scripted Exact Strategies
+
+These use named algorithm implementations rather than only a direct lookup table.
+
+| Shortname | DNA family | Default seeded setup | Raw DNA | Human explanation |
+| --- | --- | --- | --- | --- |
+| `NYDEGGER` | `SCRIPTED` | Yes | `001001010010000000000000000000000000000000000000` | Exact Nydegger strategy. It uses a specific documented formula over recent outcomes to decide when to retaliate. |
+| `SHUBIK` | `SCRIPTED` | Yes | `001001010010000000000001000000000000000000000000` | Exact Shubik strategy. It escalates retaliation length after repeated betrayals. |
+| `CHAMPION` | `SCRIPTED` | No | `001001010010000000000010000000000000000000000000` | Exact Champion strategy. It follows a phased decision process and later mixes in stochastic behavior. |
+| `TULLOCK` | `SCRIPTED` | No | `001001010010000000000011000000000000000000000000` | Exact Tullock strategy. It starts cooperatively, then adapts based on the opponent's recent cooperation rate. |
+
+## Canonical Naming
+
+The baseline registry is canonical:
+
+- one raw DNA maps to one baseline name
+- equivalent external names such as `Grim Trigger` or `Soft Go By Majority` are documented in the Axelrod mapping, but not duplicated in the internal baseline registry

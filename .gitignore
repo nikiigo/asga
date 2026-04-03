@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+test_output_visuals/
+test_output_visuals_no_animation/
+sample_output_*/
+tmp_*_config.json

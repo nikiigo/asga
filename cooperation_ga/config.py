@@ -7,13 +7,29 @@ import json
 from pathlib import Path
 from typing import Any, TypeVar
 
-from cooperation_ga.dna import default_genome_length
+from cooperation_ga.dna import baseline_dna_library, default_genome_length, StrategyDNA
 
 
 def _max_random_lookup_strategies(memory_depth: int) -> int:
     """Return the maximum number of unique random lookup DNAs the generator can produce."""
     effective_memory = max(1, memory_depth)
     return 2 ** (1 + 4**effective_memory)
+
+
+def _random_lookup_space(memory_depth: int) -> set[str]:
+    """Return the set of raw DNA strings reachable by the random lookup generator."""
+    effective_memory = max(1, memory_depth)
+    states = 4**effective_memory
+    random_space: set[str] = set()
+    for init_mask in range(2):
+        for table_mask in range(2**states):
+            actions = [
+                "C" if (table_mask >> (states - 1 - index)) & 1 else "D"
+                for index in range(states)
+            ]
+            shorthand = ("C" if init_mask else "D") + "".join(actions)
+            random_space.add(StrategyDNA.from_action_string(shorthand).to_string())
+    return random_space
 
 ConfigT = TypeVar("ConfigT", bound=object)
 
@@ -249,17 +265,22 @@ class SimulationConfig:
                 raise ValueError("initial_population must contain at least one agent.")
         elif self.initialization_mode == "seeded":
             seeded_population = 0
-            seeded_unique = 0
+            occupied_random_slots = 0
             if self.include_seeded_strategies:
-                seeded_unique = len(set(self.seed_strategies))
-                seeded_population += seeded_unique * self.seed_strategy_population
+                deterministic = baseline_dna_library()
+                seeded_dnas = {
+                    deterministic[name].to_string()
+                    for name in self.seed_strategies
+                }
+                seeded_population += len(seeded_dnas) * self.seed_strategy_population
+                occupied_random_slots = len(seeded_dnas & _random_lookup_space(self.memory_depth))
             seeded_population += self.random_strategy_mix * self.seed_strategy_population
             if seeded_population <= 0:
                 raise ValueError(
                     "seeded initialization must produce at least one agent. "
                     "Enable seeded strategies or set random_strategy_mix > 0."
                 )
-            available_random_slots = max(0, max_random_strategies - seeded_unique)
+            available_random_slots = max(0, max_random_strategies - occupied_random_slots)
             if self.random_strategy_mix > available_random_slots:
                 raise ValueError(
                     "random_strategy_mix exceeds the remaining supported random DNA space "

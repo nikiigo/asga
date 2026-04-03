@@ -1216,6 +1216,15 @@ class InteractionTests(unittest.TestCase):
                 random_strategy_mix=33,
             )
 
+    def test_default_seeded_initialization_uses_actual_random_space_overlap(self) -> None:
+        config = self._interaction_config(
+            initialization_mode="seeded",
+            initial_population=None,
+            random_strategy_mix=23,
+        )
+        population = Population.seeded_initial(config, Random(0))
+        self.assertGreater(population.total_size(), 0)
+
 
 class EngineTests(unittest.TestCase):
     @staticmethod
@@ -1525,16 +1534,17 @@ class EngineTests(unittest.TestCase):
         original_ids = {agent.id for agent in engine.population.agents}
         metric = engine.run_step(1)
         self.assertTrue(metric.reproduction_step)
-        self.assertEqual(metric.births_this_step, 1)
-        self.assertEqual(metric.deaths_this_step, ceil(config.death_rate * 4))
-        self.assertEqual(engine.population.total_size(), 4 - ceil(config.death_rate * 4) + 1)
+        self.assertEqual(metric.births_this_step, 2)
+        expected_deaths = int(config.death_rate * 4)
+        self.assertEqual(metric.deaths_this_step, expected_deaths)
+        self.assertEqual(engine.population.total_size(), 4 - expected_deaths + 2)
         surviving_original_ids = {agent.id for agent in engine.population.agents} & original_ids
-        self.assertGreaterEqual(len(surviving_original_ids), 1)
+        self.assertGreaterEqual(len(surviving_original_ids), 2)
         parent_survivors = [
             agent for agent in engine.population.agents
             if agent.id in surviving_original_ids and agent.children_count == 1
         ]
-        self.assertEqual(len(parent_survivors), 2)
+        self.assertEqual(len(parent_survivors), 4)
 
     def test_parent_dies_after_four_children_total(self) -> None:
         config = self._engine_config(

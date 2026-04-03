@@ -325,7 +325,7 @@ The default seeded strategy list is:
 - `noise_rate`: probability that an action is flipped during match play
 - `death_rate`: fraction of the population removed each step by low-score elimination; the engine uses floor rounding, so tiny populations are not forced to lose one agent unless the configured fraction reaches at least one whole agent
 - `max_population_size`: population cap that triggers overflow culling when reached or exceeded
-- `overflow_cull_rate`: fraction of the current population removed during an overflow cull
+- `overflow_cull_rate`: fraction of the current population removed during an overflow cull; the engine uses `ceil(overflow_cull_rate * current_population)` once the cap is hit, so very small capped populations can lose at least one agent
 - `overflow_cull_score_correlation`: how strongly overflow culling favors low-score agents, from `0.0` random to `1.0` lowest-score first
 - `selection_epsilon`: small positive weight added during parent selection so no surviving agent has zero selection probability
 - `payoff_R`: reward payoff for mutual cooperation
@@ -352,7 +352,7 @@ The default seeded strategy list is:
 - `max_children_per_agent`: lifetime child limit after which a parent dies
 - `allow_self_pairing`: whether both parents may share the same DNA; if `false`, the second parent must have different DNA from the first
 - `pairing_mode`: parent-pair count rule: `max_possible` or `fixed`
-- `fixed_pairs_per_reproduction`: exact number of parent pairs when `pairing_mode = "fixed"`; required in that mode
+- `fixed_pairs_per_reproduction`: requested number of parent pairs when `pairing_mode = "fixed"`; required in that mode, but the realized number can be lower if there are not enough eligible parents
 - `reset_scores_after_reproduction`: whether agent scores reset to zero after each reproduction step
 - `checkpoint_interval`: write checkpoint exports every N steps; `0` disables checkpoints
 - `verbose`: print one plain-text progress line per step

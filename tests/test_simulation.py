@@ -1389,6 +1389,26 @@ class EngineTests(unittest.TestCase):
         self.assertIn("strategy_name", (output_dir / "final_population_summary.csv").read_text(encoding="utf-8"))
         self.assertNotIn("Winning DNA", (output_dir / "report.html").read_text(encoding="utf-8"))
 
+    def test_non_visual_exports_stream_metrics_json(self) -> None:
+        output_dir = Path("test_output_non_visual_exports")
+        config = SimulationConfig(
+            num_steps=3,
+            initial_population_size=20,
+            initial_num_strategies=4,
+            random_seed=10,
+            output_dir=str(output_dir),
+            export_csv=True,
+            export_json=True,
+            export_visuals=False,
+        )
+        engine = EvolutionEngine.from_config(config)
+        metrics = engine.run()
+        engine.export(metrics)
+        exported = load_metrics_json(output_dir / "metrics.json")
+        self.assertEqual(exported, metrics)
+        self.assertTrue((output_dir / "population_breakdown.json").exists())
+        self.assertTrue((output_dir / "final_population_summary.json").exists())
+
     def test_extinction_outputs_report_no_surviving_strategy(self) -> None:
         output_dir = Path("test_output_extinction_visuals")
         config = SimulationConfig(

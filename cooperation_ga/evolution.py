@@ -189,7 +189,11 @@ class EvolutionEngine:
         visual_output_dir: str | None = None,
     ) -> None:
         """Export recorded metrics in configured formats to a specific directory."""
-        prepared_export = prepare_export_data(metrics)
+        prepared_export = (
+            prepare_export_data(metrics)
+            if self.config.export_visuals and metrics
+            else None
+        )
         if self.config.export_csv and metrics:
             export_metrics_csv(metrics, f"{output_dir}/metrics.csv", prepared_export=prepared_export)
             export_population_breakdown_csv(

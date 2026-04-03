@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from math import erfc, sqrt
 from random import Random
 from typing import Protocol, TypedDict
 
-from cooperation_ga.dna import COOPERATE, DEFECT, RANDOM, STATE_INDEX, StrategyDNA
+from cooperation_ga.dna import COOPERATE, DEFECT, NN_FEATURES, RANDOM, STATE_INDEX, StrategyDNA
 
 
 class IteratedStrategy(Protocol):
@@ -65,6 +66,27 @@ class AdaptorState:
 
 
 @dataclass(slots=True)
+class SteinAndRapoportState:
+    """Runtime state for Stein and Rapoport."""
+
+    opponent_is_random: bool = False
+
+
+@dataclass(slots=True)
+class TidemanAndChieruzziState:
+    """Runtime state for Tideman and Chieruzzi."""
+
+    is_retaliating: bool = False
+    retaliation_length: int = 0
+    retaliation_remaining: int = 0
+    current_score: int = 0
+    opponent_score: int = 0
+    last_fresh_start: int = 0
+    fresh_start: bool = False
+    remembered_number_of_opponent_defections: int = 0
+
+
+@dataclass(slots=True)
 class FsmState:
     """Explicit runtime state for finite state machine strategies."""
 
@@ -82,11 +104,20 @@ class DnaStrategy:
     """Typed DNA interpreter dispatching behavior by family."""
 
     dna: StrategyDNA
+    match_length: int | None = None
+    payoff_matrix: object | None = None
+
+    def configure_match(self, match_length: int, payoff_matrix: object) -> None:
+        """Provide match-level context for scripted strategies that need it."""
+        self.match_length = match_length
+        self.payoff_matrix = payoff_matrix
 
     def initial_state(self) -> object | None:
         """Return the initial runtime state for the DNA family."""
         family = self.dna.family_name()
         if family in {"LOOKUP", "TRIGGER", "COUNT_BASED", "PROBABILISTIC_LOOKUP"}:
+            return None
+        if family == "NN":
             return None
         if family == "FSM":
             return FsmState(current_state=self.dna.fsm_initial_state())
@@ -99,6 +130,10 @@ class DnaStrategy:
                 return AdaptiveState()
             if self.dna.script_name() in {"ADAPTOR_BRIEF", "ADAPTOR_LONG"}:
                 return AdaptorState()
+            if self.dna.script_name() == "FIRST_BY_STEIN_AND_RAPOPORT":
+                return SteinAndRapoportState()
+            if self.dna.script_name() == "FIRST_BY_TIDEMAN_AND_CHIERUZZI":
+                return TidemanAndChieruzziState()
             return ScriptedState()
         if family == "COUNTER_TRIGGER":
             base = max(1, self.dna.counter_trigger_base_punishment_length())
@@ -149,6 +184,8 @@ class DnaStrategy:
                 if probability >= 1.0:
                     return COOPERATE, state
             return COOPERATE if rng.random() < probability else DEFECT, state
+        if family == "NN":
+            return self._nn_move(own_history, opp_history), state
         if family == "FSM":
             action, new_state = self._fsm_move(opp_history, state)
             return self._resolve_action(action, self.dna.fsm_random_action_probability(), rng), new_state
@@ -218,6 +255,86 @@ class DnaStrategy:
         action, next_state = transitions[transition_index]
         return action, FsmState(current_state=next_state)
 
+    def _nn_move(self, own_history: list[int], opp_history: list[int]) -> int:
+        """Run the one-hidden-layer neural network and threshold the output."""
+        features = self._nn_features(own_history, opp_history)
+        num_features = self.dna.nn_num_features()
+        num_hidden = self.dna.nn_num_hidden()
+        weights = self.dna.nn_weights()
+        input_to_hidden_count = num_features * num_hidden
+        hidden_to_output_count = num_hidden
+        input_to_hidden = weights[:input_to_hidden_count]
+        hidden_to_output = weights[input_to_hidden_count : input_to_hidden_count + hidden_to_output_count]
+        bias = weights[input_to_hidden_count + hidden_to_output_count :]
+        hidden_values: list[float] = []
+        for hidden_index in range(num_hidden):
+            start = hidden_index * num_features
+            row = input_to_hidden[start : start + num_features]
+            total = bias[hidden_index] + sum(weight * value for weight, value in zip(row, features))
+            hidden_values.append(max(total, 0.0))
+        output = sum(weight * value for weight, value in zip(hidden_to_output, hidden_values))
+        return COOPERATE if output > 0 else DEFECT
+
+    @staticmethod
+    def _nn_features(own_history: list[int], opp_history: list[int]) -> list[float]:
+        """Compute the Axelrod ANN feature vector."""
+        if len(opp_history) == 0:
+            opponent_first_c = opponent_first_d = 0
+            opponent_second_c = opponent_second_d = 0
+            my_previous_c = my_previous_d = 0
+            my_previous2_c = my_previous2_d = 0
+            opponent_previous_c = opponent_previous_d = 0
+            opponent_previous2_c = opponent_previous2_d = 0
+        elif len(opp_history) == 1:
+            opponent_first_c = 1 if opp_history[0] == COOPERATE else 0
+            opponent_first_d = 1 if opp_history[0] == DEFECT else 0
+            opponent_second_c = opponent_second_d = 0
+            my_previous_c = 1 if own_history[-1] == COOPERATE else 0
+            my_previous_d = 1 if own_history[-1] == DEFECT else 0
+            my_previous2_c = my_previous2_d = 0
+            opponent_previous_c = 1 if opp_history[-1] == COOPERATE else 0
+            opponent_previous_d = 1 if opp_history[-1] == DEFECT else 0
+            opponent_previous2_c = opponent_previous2_d = 0
+        else:
+            opponent_first_c = 1 if opp_history[0] == COOPERATE else 0
+            opponent_first_d = 1 if opp_history[0] == DEFECT else 0
+            opponent_second_c = 1 if opp_history[1] == COOPERATE else 0
+            opponent_second_d = 1 if opp_history[1] == DEFECT else 0
+            my_previous_c = 1 if own_history[-1] == COOPERATE else 0
+            my_previous_d = 1 if own_history[-1] == DEFECT else 0
+            my_previous2_c = 1 if own_history[-2] == COOPERATE else 0
+            my_previous2_d = 1 if own_history[-2] == DEFECT else 0
+            opponent_previous_c = 1 if opp_history[-1] == COOPERATE else 0
+            opponent_previous_d = 1 if opp_history[-1] == DEFECT else 0
+            opponent_previous2_c = 1 if opp_history[-2] == COOPERATE else 0
+            opponent_previous2_d = 1 if opp_history[-2] == DEFECT else 0
+        total_opponent_c = sum(move == COOPERATE for move in opp_history)
+        total_opponent_d = sum(move == DEFECT for move in opp_history)
+        total_player_c = sum(move == COOPERATE for move in own_history)
+        total_player_d = sum(move == DEFECT for move in own_history)
+        features = [
+            opponent_first_c,
+            opponent_first_d,
+            opponent_second_c,
+            opponent_second_d,
+            my_previous_c,
+            my_previous_d,
+            my_previous2_c,
+            my_previous2_d,
+            opponent_previous_c,
+            opponent_previous_d,
+            opponent_previous2_c,
+            opponent_previous2_d,
+            total_opponent_c,
+            total_opponent_d,
+            total_player_c,
+            total_player_d,
+            len(own_history),
+        ]
+        if len(features) != NN_FEATURES:
+            raise ValueError("Unexpected NN feature vector length.")
+        return [float(value) for value in features]
+
     def _scripted_move(
         self,
         own_history: list[int],
@@ -259,6 +376,13 @@ class DnaStrategy:
         if script_name == "ADAPTOR_LONG":
             current = state if isinstance(state, AdaptorState) else AdaptorState()
             return self._adaptor_move(own_history, opp_history, current, brief=False, rng=rng)
+        if script_name == "FIRST_BY_STEIN_AND_RAPOPORT":
+            current = state if isinstance(state, SteinAndRapoportState) else SteinAndRapoportState()
+            return self._stein_and_rapoport_move(opp_history, current), current
+        if script_name == "FIRST_BY_TIDEMAN_AND_CHIERUZZI":
+            current = state if isinstance(state, TidemanAndChieruzziState) else TidemanAndChieruzziState()
+            action, new_state = self._tideman_and_chieruzzi_move(own_history, opp_history, current)
+            return action, new_state
         raise ValueError(f"Unsupported scripted strategy: {script_name}")
 
     def _nydegger_move(self, own_history: list[int], opp_history: list[int]) -> int:
@@ -481,6 +605,119 @@ class DnaStrategy:
         heaviside_minus = 1.0 if current.s >= 1 else 0.0
         probability = perr + (1.0 - 2 * perr) * (heaviside_plus - heaviside_minus)
         return (COOPERATE if rng.random() < probability else DEFECT), current
+
+    def _stein_and_rapoport_move(
+        self,
+        opp_history: list[int],
+        state: SteinAndRapoportState,
+    ) -> int:
+        """Implement FirstBySteinAndRapoport exactly."""
+        round_number = len(opp_history) + 1
+        if self.match_length is not None and round_number >= self.match_length - 1:
+            return DEFECT
+        if round_number < 5:
+            return COOPERATE
+        if round_number < 15:
+            return opp_history[-1]
+        if round_number % 15 == 0:
+            cooperations = sum(move == COOPERATE for move in opp_history)
+            defections = len(opp_history) - cooperations
+            p_value = self._chisquare_p_value(cooperations, defections)
+            state.opponent_is_random = p_value >= 0.05
+        if state.opponent_is_random:
+            return DEFECT
+        return opp_history[-1]
+
+    def _tideman_and_chieruzzi_move(
+        self,
+        own_history: list[int],
+        opp_history: list[int],
+        state: TidemanAndChieruzziState,
+    ) -> tuple[int, TidemanAndChieruzziState]:
+        """Implement FirstByTidemanAndChieruzzi exactly."""
+        current = TidemanAndChieruzziState(
+            is_retaliating=state.is_retaliating,
+            retaliation_length=state.retaliation_length,
+            retaliation_remaining=state.retaliation_remaining,
+            current_score=state.current_score,
+            opponent_score=state.opponent_score,
+            last_fresh_start=state.last_fresh_start,
+            fresh_start=state.fresh_start,
+            remembered_number_of_opponent_defections=state.remembered_number_of_opponent_defections,
+        )
+        current_round = len(own_history) + 1
+        if self.match_length is not None and current_round >= self.match_length - 1:
+            return DEFECT, current
+        if not opp_history:
+            return COOPERATE, current
+        if opp_history[-1] == DEFECT:
+            current.remembered_number_of_opponent_defections += 1
+        score_self, score_opp = self._score_pair(own_history[-1], opp_history[-1])
+        current.current_score += score_self
+        current.opponent_score += score_opp
+        if current.fresh_start:
+            current.fresh_start = False
+            return COOPERATE, current
+        if current.last_fresh_start == 0:
+            valid_fresh_start = True
+        else:
+            valid_fresh_start = current_round - current.last_fresh_start >= 20
+        if valid_fresh_start:
+            valid_points = current.current_score - current.opponent_score >= 10
+            valid_rounds = self.match_length is None or self.match_length - current_round >= 10
+            opponent_is_cooperating = opp_history[-1] == COOPERATE
+            if valid_points and valid_rounds and opponent_is_cooperating:
+                total_rounds = len(opp_history)
+                std_deviation = sqrt(total_rounds) / 2 if total_rounds else 0.0
+                lower = total_rounds / 2 - 3 * std_deviation
+                upper = total_rounds / 2 + 3 * std_deviation
+                if (
+                    current.remembered_number_of_opponent_defections <= lower
+                    or current.remembered_number_of_opponent_defections >= upper
+                ):
+                    current.last_fresh_start = current_round
+                    current.is_retaliating = False
+                    current.retaliation_length = 0
+                    current.retaliation_remaining = 0
+                    current.remembered_number_of_opponent_defections = 0
+                    current.fresh_start = True
+                    return COOPERATE, current
+        if current.is_retaliating:
+            current.retaliation_remaining -= 1
+            if current.retaliation_remaining == 0:
+                current.is_retaliating = False
+            return DEFECT, current
+        if opp_history[-1] == DEFECT:
+            current.is_retaliating = True
+            current.retaliation_length += 1
+            current.retaliation_remaining = current.retaliation_length - 1
+            if current.retaliation_remaining == 0:
+                current.is_retaliating = False
+            return DEFECT, current
+        return COOPERATE, current
+
+    def _score_pair(self, own_move: int, opp_move: int) -> tuple[int, int]:
+        """Score a round using the active match payoff matrix or the default one."""
+        payoff = self.payoff_matrix
+        if payoff is not None and hasattr(payoff, "payoff"):
+            return payoff.payoff(own_move, opp_move)  # type: ignore[no-any-return]
+        if own_move == COOPERATE and opp_move == COOPERATE:
+            return 3, 3
+        if own_move == DEFECT and opp_move == COOPERATE:
+            return 5, 0
+        if own_move == COOPERATE and opp_move == DEFECT:
+            return 0, 5
+        return 1, 1
+
+    @staticmethod
+    def _chisquare_p_value(cooperations: int, defections: int) -> float:
+        """Return the chi-squared p-value for a 50/50 split with df=1."""
+        total = cooperations + defections
+        if total == 0:
+            return 1.0
+        expected = total / 2
+        statistic = ((cooperations - expected) ** 2) / expected + ((defections - expected) ** 2) / expected
+        return erfc(sqrt(statistic / 2))
 
     def _counter_trigger_move(
         self,

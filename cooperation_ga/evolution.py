@@ -298,7 +298,8 @@ class EvolutionEngine:
                 return agent
         return eligible[-1]
 
-    def _strategy_label(self, dna: str | None) -> str:
+    @staticmethod
+    def _strategy_label(dna: str | None) -> str:
         """Return a compact human-readable strategy label for logs."""
         if dna is None:
             return "n/a"
@@ -315,8 +316,8 @@ class EvolutionEngine:
             for dna, count in ordered
         ) or "none"
 
+    @staticmethod
     def _print_trace(
-        self,
         step: int,
         interactions,
         low_score_victims: list[tuple[int, float]],

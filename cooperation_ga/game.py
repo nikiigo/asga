@@ -53,6 +53,10 @@ def simulate_match(
     """Simulate an iterated match between two strategies."""
     strategy_a = _coerce_strategy(player_a)
     strategy_b = _coerce_strategy(player_b)
+    if hasattr(strategy_a, "configure_match"):
+        strategy_a.configure_match(rounds, payoff_matrix)  # type: ignore[attr-defined]
+    if hasattr(strategy_b, "configure_match"):
+        strategy_b.configure_match(rounds, payoff_matrix)  # type: ignore[attr-defined]
     history_a: list[int] = []
     history_b: list[int] = []
     state_a = strategy_a.initial_state()

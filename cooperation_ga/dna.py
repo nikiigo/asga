@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
+from pathlib import Path
 from random import Random
+import struct
 from typing import Final
 
 
@@ -16,7 +19,7 @@ TEXT_TO_ACTION: Final[dict[str, int]] = {value: key for key, value in ACTION_TO_
 
 VERSION_BITS = 3
 FAMILY_BITS = 5
-PAYLOAD_LENGTH_BITS = 8
+PAYLOAD_LENGTH_BITS = 16
 HEADER_BITS = VERSION_BITS + FAMILY_BITS + PAYLOAD_LENGTH_BITS
 SUPPORTED_VERSION = 1
 
@@ -31,6 +34,7 @@ FAMILY_TO_CODE: Final[dict[str, int]] = {
     "FSM": 4,
     "SCRIPTED": 5,
     "COUNTER_TRIGGER": 6,
+    "NN": 7,
 }
 CODE_TO_FAMILY: Final[dict[int, str]] = {code: name for name, code in FAMILY_TO_CODE.items()}
 
@@ -42,6 +46,8 @@ FSM_BITS = 2 + 3 + 3 + 8
 FSM_TRANSITION_BITS = 5
 SCRIPTED_BITS = 8 + 24
 COUNTER_TRIGGER_BITS = 2 + 2 + 2 + 4 + 8 + 8 + 8 + 1 + 1 + 8
+NN_BITS = 8 + 8
+NN_FEATURES = 17
 
 STATE_ORDER: Final[list[tuple[int, int]]] = [
     (COOPERATE, COOPERATE),
@@ -67,6 +73,8 @@ SCRIPT_ID_TO_NAME: Final[dict[int, str]] = {
     9: "SECOND_BY_GROFMAN",
     10: "ADAPTOR_BRIEF",
     11: "ADAPTOR_LONG",
+    12: "FIRST_BY_STEIN_AND_RAPOPORT",
+    13: "FIRST_BY_TIDEMAN_AND_CHIERUZZI",
 }
 SCRIPT_NAME_TO_ID: Final[dict[str, int]] = {name: script_id for script_id, name in SCRIPT_ID_TO_NAME.items()}
 
@@ -260,6 +268,26 @@ class StrategyDNA:
         return cls(_build_header("PROBABILISTIC_LOOKUP", len(payload)) + payload)
 
     @classmethod
+    def nn(
+        cls,
+        num_hidden: int,
+        weights: tuple[float, ...] | list[float],
+        num_features: int = NN_FEATURES,
+    ) -> "StrategyDNA":
+        """Create a one-hidden-layer neural-network genome."""
+        if num_features <= 0 or num_hidden <= 0:
+            raise ValueError("NN dimensions must be positive.")
+        expected = num_features * num_hidden + 2 * num_hidden
+        if len(weights) != expected:
+            raise ValueError(f"NN genome requires {expected} weights.")
+        payload = (
+            _int_to_bits(num_features, 8)
+            + _int_to_bits(num_hidden, 8)
+            + tuple(bit for weight in weights for bit in _float_to_bits(weight))
+        )
+        return cls(_build_header("NN", len(payload)) + payload)
+
+    @classmethod
     def fsm(
         cls,
         init_action: int,
@@ -443,6 +471,12 @@ class StrategyDNA:
                 f"{self.counter_trigger_max_punishment_length()}, forgive_after_serving="
                 f"{self.counter_trigger_forgive_after_serving()}. "
                 f"RANDOM actions cooperate with probability {self.counter_trigger_random_action_probability():.3f}."
+            )
+        if family == "NN":
+            return (
+                f"{prefix}NN strategy with {self.nn_num_features()} inputs and "
+                f"{self.nn_num_hidden()} hidden units. "
+                f"Uses a one-hidden-layer ReLU network and cooperates when the output score is positive."
             )
         return f"{prefix}{family} strategy."
 
@@ -688,6 +722,21 @@ class StrategyDNA:
         payload = self.payload_bits()
         return _bits_to_int(payload[36:44]) / 255.0
 
+    def nn_num_features(self) -> int:
+        """Return the neural network input feature count."""
+        payload = self.payload_bits()
+        return _bits_to_int(payload[:8])
+
+    def nn_num_hidden(self) -> int:
+        """Return the neural network hidden layer width."""
+        payload = self.payload_bits()
+        return _bits_to_int(payload[8:16])
+
+    def nn_weights(self) -> tuple[float, ...]:
+        """Return the flattened neural-network weights."""
+        payload = self.payload_bits()[16:]
+        return tuple(_bits_to_float(payload[index : index + 32]) for index in range(0, len(payload), 32))
+
     def _validate_payload(self) -> None:
         """Validate the family-specific payload layout."""
         family = self.family_name()
@@ -755,12 +804,23 @@ class StrategyDNA:
             _validate_action_bits(payload[2:4])
             _validate_action_bits(payload[4:6])
             return
+        if family == "NN":
+            if len(payload) < NN_BITS:
+                raise ValueError("NN payload is too short.")
+            num_features = _bits_to_int(payload[:8])
+            num_hidden = _bits_to_int(payload[8:16])
+            if num_features <= 0 or num_hidden <= 0:
+                raise ValueError("NN payload contains invalid dimensions.")
+            expected = NN_BITS + 32 * (num_features * num_hidden + 2 * num_hidden)
+            if len(payload) != expected:
+                raise ValueError("NN payload has invalid length.")
+            return
         raise ValueError(f"Unsupported DNA family: {family}")
 
 
 def baseline_dna_library() -> dict[str, StrategyDNA]:
     """Return predefined baseline strategies encoded as typed DNA."""
-    return {
+    baselines = {
         "ALLC": StrategyDNA.lookup_table(COOPERATE, 1, (COOPERATE, COOPERATE, COOPERATE, COOPERATE)),
         "ALLD": StrategyDNA.lookup_table(DEFECT, 1, (DEFECT, DEFECT, DEFECT, DEFECT)),
         "TFT": StrategyDNA.lookup_table(COOPERATE, 1, (COOPERATE, DEFECT, COOPERATE, DEFECT)),
@@ -797,6 +857,8 @@ def baseline_dna_library() -> dict[str, StrategyDNA]:
         "SECOND_BY_GROFMAN": StrategyDNA.scripted("SECOND_BY_GROFMAN"),
         "ADAPTOR_BRIEF": StrategyDNA.scripted("ADAPTOR_BRIEF"),
         "ADAPTOR_LONG": StrategyDNA.scripted("ADAPTOR_LONG"),
+        "FIRST_BY_STEIN_AND_RAPOPORT": StrategyDNA.scripted("FIRST_BY_STEIN_AND_RAPOPORT"),
+        "FIRST_BY_TIDEMAN_AND_CHIERUZZI": StrategyDNA.scripted("FIRST_BY_TIDEMAN_AND_CHIERUZZI"),
         "SHUBIK_COUNTER": StrategyDNA.counter_trigger(
             init_action=COOPERATE,
             default_action=COOPERATE,
@@ -934,6 +996,8 @@ def baseline_dna_library() -> dict[str, StrategyDNA]:
         "HARD_REVENGER": StrategyDNA.lookup_table(COOPERATE, 1, (DEFECT, DEFECT, DEFECT, DEFECT)),
         "TESTER": StrategyDNA.lookup_table(DEFECT, 1, (COOPERATE, COOPERATE, DEFECT, COOPERATE)),
     }
+    baselines.update(_ann_baseline_dna_library())
+    return baselines
 
 
 def baseline_name_by_dna_string() -> dict[str, str]:
@@ -949,6 +1013,54 @@ def default_genome_length(memory_depth: int = 1) -> int:
 def explain_dna(raw_dna: str) -> str:
     """Decode a raw DNA bit string into a human-readable explanation."""
     return StrategyDNA.from_string(raw_dna).explain()
+
+
+def _ann_baseline_dna_library() -> dict[str, StrategyDNA]:
+    """Load evolved ANN baselines from Axelrod's bundled ANN weight file when available."""
+    rows = _load_axelrod_ann_weights()
+    mapping = {
+        "Evolved ANN": "EVOLVED_ANN",
+        "Evolved ANN 5": "EVOLVED_ANN5",
+        "Evolved ANN 5 Noise 05": "EVOLVED_ANN_NOISE05",
+    }
+    baselines: dict[str, StrategyDNA] = {}
+    for source_name, shortname in mapping.items():
+        if source_name not in rows:
+            continue
+        num_features, num_hidden, weights = rows[source_name]
+        baselines[shortname] = StrategyDNA.nn(num_hidden=num_hidden, weights=weights, num_features=num_features)
+    return baselines
+
+
+def _load_axelrod_ann_weights() -> dict[str, tuple[int, int, list[float]]]:
+    """Load Axelrod ANN weights from a local installation if available."""
+    data_file = _find_axelrod_ann_weight_file()
+    if data_file is None:
+        return {}
+    rows: dict[str, tuple[int, int, list[float]]] = {}
+    with data_file.open(newline="", encoding="utf-8") as handle:
+        reader = csv.reader(handle)
+        for row in reader:
+            if not row or row[0].startswith("#"):
+                continue
+            name = row[0].strip()
+            num_features = int(row[1])
+            num_hidden = int(row[2])
+            weights = [float(value) for value in row[3:]]
+            rows[name] = (num_features, num_hidden, weights)
+    return rows
+
+
+def load_axelrod_ann_weights() -> dict[str, tuple[int, int, list[float]]]:
+    """Public wrapper for loading bundled Axelrod ANN weights."""
+    return _load_axelrod_ann_weights()
+
+
+def _find_axelrod_ann_weight_file() -> Path | None:
+    """Return the local Axelrod ANN weight file if present."""
+    repo_root = Path(__file__).resolve().parent.parent
+    candidates = sorted(repo_root.glob(".venv/lib/python*/site-packages/axelrod/data/ann_weights.csv"))
+    return candidates[0] if candidates else None
 
 
 def _build_header(family_name: str, payload_length: int) -> tuple[int, ...]:
@@ -973,6 +1085,25 @@ def _bits_to_int(bits: tuple[int, ...] | list[int]) -> int:
     for bit in bits:
         value = (value << 1) | bit
     return value
+
+
+def _float_to_bits(value: float) -> tuple[int, ...]:
+    """Encode a float as IEEE-754 single-precision bits."""
+    packed = struct.pack(">f", float(value))
+    return tuple((byte >> shift) & 1 for byte in packed for shift in range(7, -1, -1))
+
+
+def _bits_to_float(bits: tuple[int, ...] | list[int]) -> float:
+    """Decode an IEEE-754 single-precision float from bits."""
+    if len(bits) != 32:
+        raise ValueError("Float bit sequences must be 32 bits long.")
+    bytes_out = bytearray()
+    for start in range(0, 32, 8):
+        byte = 0
+        for bit in bits[start : start + 8]:
+            byte = (byte << 1) | bit
+        bytes_out.append(byte)
+    return struct.unpack(">f", bytes(bytes_out))[0]
 
 
 def _probability_to_byte(value: float) -> int:

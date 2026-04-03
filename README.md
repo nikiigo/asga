@@ -76,9 +76,9 @@ If you want to run the Axelrod reference-verification tests, install the develop
 ## Implemented Features
 
 - Hashable typed bit-array DNA strategies with mutation, one-point crossover, validation, and random generation
-- Family-aware DNA execution supporting lookup-table, trigger, count-based, probabilistic lookup, FSM, and scripted exact strategies
-- Deterministic baseline DNA mappings, including 15 predefined seeded strategies
-- Seeded-default initialization with 15 predefined DNA strategies and 50 agents per strategy
+- Family-aware DNA execution supporting `LOOKUP`, `TRIGGER`, `COUNT_BASED`, `PROBABILISTIC_LOOKUP`, `FSM`, `SCRIPTED`, `COUNTER_TRIGGER`, and `NN`
+- 51 implemented baseline DNA strategies across the supported families, including 38 exact Axelrod-mapped strategies and project-local helper baselines
+- Seeded-default initialization with 15 predefined DNA strategies and 50 agents per strategy in `sample_config.json`
 - Explicit `initial_population` mapping support for baseline names and DNA strings
 - Repeated Prisoner's Dilemma match simulation with configurable payoffs, configurable `rounds_per_match`, and optional action noise
 - Explicit individual-agent population with unique ids, scores, and ages
@@ -89,7 +89,7 @@ If you want to run the Axelrod reference-verification tests, install the develop
 - Pair-based reproduction with one child per parent pair by default
 - Parents remain alive until they have produced `max_children_per_agent` children, then die
 - Mutation interpreted as expected mutated genes per offspring genome
-- Configurable maximum population cap with random overflow culling after reproduction
+- Configurable maximum population cap with overflow culling blended between random removal and low-score pressure
 - Per-step metrics with CSV and JSON export, including `DNA -> count`, dominant DNA, dominant group size, and dominant share
 - Static infographic PNG and HTML report export
 - Seeded initialization using deterministic baseline DNA plus random DNA
@@ -138,6 +138,7 @@ Implemented DNA families and payload meaning:
 | `FSM` | Finite state machines | initial action, state count, initial state, random-action probability, transitions |
 | `SCRIPTED` | Exact named algorithms | script id plus family-specific parameters |
 | `COUNTER_TRIGGER` | Escalating punishment rules | trigger states, punishment-length parameters, random-action probability |
+| `NN` | Feed-forward neural strategies | feature count, hidden size, encoded weights and biases |
 
 Implemented DNA families:
 
@@ -148,6 +149,7 @@ Implemented DNA families:
 - `FSM`
 - `SCRIPTED`
 - `COUNTER_TRIGGER`
+- `NN`
 
 The exported `dna` field is the raw bit string. When a DNA matches a known baseline, exports also include the corresponding `strategy_name`.
 
@@ -386,7 +388,7 @@ Equivalent 10,000-step configs are also available:
 
 ## Axelrod Mapping
 
-A compatibility map for selected Axelrod-library strategies is maintained in [docs/axelrod_strategy_mapping.md](docs/axelrod_strategy_mapping.md). It marks each mapped strategy as `exact`, `approximate`, or `unsupported` against the currently implemented DNA families.
+A compatibility map for selected Axelrod-library strategies is maintained in [docs/axelrod_strategy_mapping.md](docs/axelrod_strategy_mapping.md). It marks each mapped strategy as `exact` or `unsupported` against the currently implemented DNA families.
 
 That mapping file also contains a separate `Project-Local Implemented Baselines` section for strategies that exist in `baseline_dna_library()` but are not primary Axelrod mapping rows.
 

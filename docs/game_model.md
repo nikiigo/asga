@@ -130,7 +130,7 @@ Agents are ordered by score from lowest to highest.
 
 If several agents tie near the cutoff, random shuffling breaks ties before removal.
 
-If the configured `max_population_size` is reached or exceeded, an additional overflow cull happens after reproduction. That cull removes `ceil(overflow_cull_rate * current_population)` agents, so capped very small populations can still lose at least one agent.
+If the configured `max_population_size` is exceeded, an additional overflow cull happens after reproduction. That cull removes `ceil(overflow_cull_rate * current_population)` agents, so capped very small populations can still lose at least one agent.
 
 ## Reproduction
 

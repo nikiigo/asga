@@ -19,5 +19,5 @@
   "viz_leader_title": "Leading DNA at the finish",
   "viz_report_title": "Evolution of Cooperation Report",
   "viz_report_heading": "Evolution of Cooperation",
-  "viz_report_description": "Agent-based Prisoner's Dilemma simulation with per-step pairing, score-based selection pressure, scheduled reproduction, and interactive DNA dynamics."
+  "viz_report_description": "Agent-based Prisoner's Dilemma simulation with per-step pairing, score-based selection pressure, scheduled reproduction, and static DNA dynamics."
 }

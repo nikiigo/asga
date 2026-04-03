@@ -35,10 +35,10 @@ Run the sample experiment:
 .venv/bin/python main.py --config sample_config.json
 ```
 
-Run the sample experiment with a separate visualization config:
+Render a static infographic from saved metrics with a separate visualization config:
 
 ```bash
-.venv/bin/python main.py --config sample_config.json --render-config sample_render_config.json
+.venv/bin/python main.py --render-config sample_render_config.json --render-from-metrics sample_output/metrics.json
 ```
 
 Run with per-step progress output:

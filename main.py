@@ -8,7 +8,6 @@ from pathlib import Path
 from cooperation_ga.config import SimulationConfig, VisualizationConfig
 from cooperation_ga.evolution import EvolutionEngine
 from cooperation_ga.metrics import final_population_summary_rows, load_metrics_json
-from cooperation_ga.visualization import export_visualizations
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -66,6 +65,8 @@ def main() -> None:
     render_config_path = args.render_config or args.config
     visualization_config = VisualizationConfig.from_json(render_config_path)
     if args.render_from_metrics is not None:
+        from cooperation_ga.visualization import export_visualizations
+
         print(
             f"Loading metrics from {args.render_from_metrics} and writing rendered outputs to "
             f"{visualization_config.output_dir}...",

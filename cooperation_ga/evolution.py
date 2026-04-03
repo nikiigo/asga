@@ -21,7 +21,6 @@ from cooperation_ga.metrics import (
 )
 from cooperation_ga.population import Agent, Population
 from cooperation_ga.tournament import run_interactions
-from cooperation_ga.visualization import export_visualizations
 
 
 @dataclass(slots=True)
@@ -165,6 +164,8 @@ class EvolutionEngine:
             export_population_breakdown_json(metrics, f"{output_dir}/population_breakdown.json")
             export_final_population_summary_json(metrics, f"{output_dir}/final_population_summary.json")
         if self.config.export_visuals and metrics:
+            from cooperation_ga.visualization import export_visualizations
+
             export_visualizations(metrics, output_dir, self.visualization_config)
 
     def _apply_scores(self, score_by_agent_id: dict[int, float]) -> None:

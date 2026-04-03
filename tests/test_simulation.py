@@ -1153,6 +1153,33 @@ class InteractionTests(unittest.TestCase):
         ):
             self._interaction_config(pairing_mode="fixed", fixed_pairs_per_reproduction=0)
 
+    def test_empty_initial_population_mapping_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "initial_population must contain at least one agent."):
+            self._interaction_config(initial_population={})
+
+    def test_random_initialization_requires_positive_population_size(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "random initialization requires initial_population_size to be positive.",
+        ):
+            self._interaction_config(
+                initialization_mode="random",
+                initial_population=None,
+                initial_population_size=0,
+            )
+
+    def test_seeded_initialization_must_produce_agents(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "seeded initialization must produce at least one agent.",
+        ):
+            self._interaction_config(
+                initialization_mode="seeded",
+                initial_population=None,
+                include_seeded_strategies=False,
+                random_strategy_mix=0,
+            )
+
 
 class EngineTests(unittest.TestCase):
     @staticmethod

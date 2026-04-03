@@ -157,6 +157,8 @@ class SimulationConfig:
             raise ValueError("num_steps must be positive.")
         if self.initial_population_size < 0:
             raise ValueError("initial_population_size must be non-negative.")
+        if self.initial_population_size == 0 and self.initial_population is None and self.initialization_mode == "random":
+            raise ValueError("random initialization requires initial_population_size to be positive.")
         if self.initial_num_strategies <= 0:
             raise ValueError("initial_num_strategies must be positive.")
         if self.seed_strategy_population <= 0:
@@ -221,8 +223,21 @@ class SimulationConfig:
             ]
         if self.max_population_size is not None and self.max_population_size <= 0:
             raise ValueError("max_population_size must be positive when provided.")
-        if self.initial_population is not None and any(count < 0 for count in self.initial_population.values()):
-            raise ValueError("initial_population counts must be non-negative.")
+        if self.initial_population is not None:
+            if any(count < 0 for count in self.initial_population.values()):
+                raise ValueError("initial_population counts must be non-negative.")
+            if sum(self.initial_population.values()) <= 0:
+                raise ValueError("initial_population must contain at least one agent.")
+        elif self.initialization_mode == "seeded":
+            seeded_population = 0
+            if self.include_seeded_strategies:
+                seeded_population += len(set(self.seed_strategies)) * self.seed_strategy_population
+            seeded_population += self.random_strategy_mix * self.seed_strategy_population
+            if seeded_population <= 0:
+                raise ValueError(
+                    "seeded initialization must produce at least one agent. "
+                    "Enable seeded strategies or set random_strategy_mix > 0."
+                )
 
     @classmethod
     def from_json(cls, path: str | Path) -> "SimulationConfig":

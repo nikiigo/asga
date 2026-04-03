@@ -81,6 +81,7 @@ def main() -> None:
         metrics = load_metrics_json(args.render_from_metrics)
         export_visualizations(metrics, visualization_config.output_dir, visualization_config)
         print(f"Rendered visuals from metrics: {args.render_from_metrics}", flush=True)
+        print(f"HTML report: {Path(visualization_config.output_dir) / 'report.html'}", flush=True)
         print(f"Static infographic: {Path(visualization_config.output_dir) / 'summary_infographic.png'}", flush=True)
         return
     if args.render_config is not None:

@@ -671,6 +671,7 @@ class DnaTests(unittest.TestCase):
                 cli_main.main()
         self.assertIn("Rendered visuals from metrics", stdout.getvalue())
         self.assertTrue(Path("sample_output_1000_all_strategies_20_render_static/summary_infographic.png").exists())
+        self.assertTrue(Path("sample_output_1000_all_strategies_20_render_static/report.html").exists())
 
 
 class StrategyTests(unittest.TestCase):
@@ -1655,12 +1656,14 @@ class EngineTests(unittest.TestCase):
         text = stdout.getvalue()
         self.assertIn("Building visualization bundle...", text)
         self.assertIn("Writing static infographic:", text)
+        self.assertIn("Writing HTML report:", text)
         self.assertIn("Finished rendering visual outputs.", text)
         status = json.loads((output_dir / "status.txt").read_text(encoding="utf-8"))
         self.assertEqual(status["phase"], "done")
         self.assertEqual(status["infographic_path"], str(output_dir / "summary_infographic.png"))
+        self.assertEqual(status["report_path"], str(output_dir / "report.html"))
         self.assertTrue((output_dir / "summary_infographic.png").exists())
-        self.assertFalse((output_dir / "report.html").exists())
+        self.assertTrue((output_dir / "report.html").exists())
 
     def test_render_from_metrics_rejects_empty_metrics(self) -> None:
         output_dir = Path("test_output_visuals_empty_metrics")
@@ -1720,7 +1723,7 @@ class EngineTests(unittest.TestCase):
         self.assertTrue((metrics_dir / "population_breakdown.json").exists())
         self.assertFalse((metrics_dir / "report.html").exists())
         self.assertTrue((render_dir / "summary_infographic.png").exists())
-        self.assertFalse((render_dir / "report.html").exists())
+        self.assertTrue((render_dir / "report.html").exists())
         status = json.loads((render_dir / "status.txt").read_text(encoding="utf-8"))
         self.assertEqual(status["phase"], "done")
 

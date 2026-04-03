@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from html import escape
 import json
 from pathlib import Path
 import os
@@ -96,7 +97,21 @@ def export_visualizations(
     _write_render_status(status_path, "write_static_infographic", infographic_path=str(infographic_path))
     print(f"Writing static infographic: {infographic_path}", flush=True)
     _create_infographic(bundle, infographic_path, config)
-    _write_render_status(status_path, "done", infographic_path=str(infographic_path))
+    report_path = destination / "report.html"
+    _write_render_status(
+        status_path,
+        "write_html_report",
+        infographic_path=str(infographic_path),
+        report_path=str(report_path),
+    )
+    print(f"Writing HTML report: {report_path}", flush=True)
+    _write_html_report(bundle, report_path, config, infographic_path.name)
+    _write_render_status(
+        status_path,
+        "done",
+        infographic_path=str(infographic_path),
+        report_path=str(report_path),
+    )
     print("Finished rendering visual outputs.", flush=True)
 
 
@@ -225,6 +240,150 @@ def _create_infographic(bundle: VisualizationBundle, path: Path, config: Visuali
     plt.close(fig)
 
 
+def _write_html_report(
+    bundle: VisualizationBundle,
+    path: Path,
+    config: VisualizationConfig,
+    infographic_filename: str,
+) -> None:
+    """Write an HTML report with charts and a final-population table."""
+    final = bundle.final
+    winning_strategy = (
+        bundle.strategy_names.get(final.dominant_dna or "", final.dominant_dna or "n/a")
+        if final.total_population_size > 0
+        else "no surviving strategy"
+    )
+    top_rows = bundle.final_rows[:20]
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escape(config.viz_report_title)}</title>
+  <style>
+    :root {{
+      --bg: {config.viz_bg_color};
+      --panel: {config.viz_panel_color};
+      --ink: {config.viz_ink_color};
+      --muted: {config.viz_muted_color};
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      background:
+        radial-gradient(circle at top right, rgba(237, 174, 73, 0.18), transparent 26%),
+        linear-gradient(180deg, #f7f1ea 0%, var(--bg) 100%);
+    }}
+    main {{ max-width: 1440px; margin: 0 auto; padding: 28px 22px 54px; }}
+    .hero, .panel {{
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(0, 61, 91, 0.12);
+      border-radius: 22px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.05);
+    }}
+    .hero {{ padding: 28px; }}
+    h1 {{ margin: 0; font-size: clamp(2.2rem, 4vw, 3.7rem); line-height: 1.05; }}
+    h2 {{ margin: 0 0 14px; font-size: 1.02rem; text-transform: uppercase; letter-spacing: 0.05em; }}
+    .sub {{ margin-top: 10px; color: var(--muted); max-width: 70ch; }}
+    .stats {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }}
+    .stat {{
+      background: var(--panel);
+      border: 1px solid rgba(0, 61, 91, 0.10);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }}
+    .stat .label {{
+      font-size: 0.82rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }}
+    .stat .value {{
+      margin-top: 8px;
+      font-size: 1.7rem;
+      font-weight: 700;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }}
+    .panel {{ padding: 18px; overflow: hidden; }}
+    .panel.full {{ grid-column: 1 / -1; }}
+    .chart-wrap {{
+      background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.22));
+      border-radius: 14px;
+      padding: 8px;
+    }}
+    .table-wrap {{ overflow-x: auto; }}
+    table {{ width: 100%; border-collapse: collapse; }}
+    th, td {{ padding: 10px 12px; border-bottom: 1px solid rgba(0, 61, 91, 0.10); text-align: left; vertical-align: top; }}
+    th {{ font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }}
+    code {{ font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.83rem; word-break: break-all; }}
+    img {{ width: 100%; display: block; border-radius: 14px; border: 1px solid rgba(0, 61, 91, 0.12); }}
+    .foot {{ margin-top: 12px; color: var(--muted); font-size: 0.92rem; }}
+    @media (max-width: 980px) {{ .grid {{ grid-template-columns: 1fr; }} }}
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <h1>{escape(config.viz_report_heading)}</h1>
+      <p class="sub">{escape(config.viz_report_description)}</p>
+      <div class="stats">
+        {_stat_card("Winner", winning_strategy)}
+        {_stat_card("Final Population", str(final.total_population_size))}
+        {_stat_card("Unique Strategies", str(final.num_unique_strategies))}
+        {_stat_card("Final Cooperation", f"{final.overall_cooperation_rate:.1%}")}
+        {_stat_card("Dominant Share", f"{final.dominant_strategy_share:.1%}")}
+        {_stat_card("Hybrids Seen", str(bundle.hybrid_total_count))}
+      </div>
+    </section>
+    <section class="grid">
+      <article class="panel">
+        <h2>Behavioral Balance</h2>
+        <div class="chart-wrap">{_line_chart_svg(bundle.steps, bundle.overview_series[:2], 0.0, 1.0)}</div>
+      </article>
+      <article class="panel">
+        <h2>Population Structure</h2>
+        <div class="chart-wrap">{_line_chart_svg(bundle.steps, bundle.overview_series[2:], 0.0, None)}</div>
+      </article>
+      <article class="panel full">
+        <h2>Top Strategy Timelines</h2>
+        <div class="chart-wrap">{_strategy_chart_svg(bundle)}</div>
+      </article>
+      <article class="panel full">
+        <h2>Rendered Infographic</h2>
+        <img src="{escape(infographic_filename)}" alt="Summary infographic">
+      </article>
+      <article class="panel full">
+        <h2>Final Population Table</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Rank</th><th>Strategy</th><th>Population</th><th>DNA</th><th>Explanation</th></tr>
+            </thead>
+            <tbody>{''.join(_final_row_html(index + 1, row) for index, row in enumerate(top_rows))}</tbody>
+          </table>
+        </div>
+        <p class="foot">Showing the top {len(top_rows)} final DNA groups by surviving population.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
+"""
+    path.write_text(html, encoding="utf-8")
+
+
 def _draw_title_card(ax: plt.Axes, bundle: VisualizationBundle, config: VisualizationConfig) -> None:
     """Render the headline summary block."""
     ax.axis("off")
@@ -328,6 +487,105 @@ def _draw_flow_panel(ax: plt.Axes, bundle: VisualizationBundle, config: Visualiz
     ax.legend(frameon=False, loc="upper right")
 
 
+def _stat_card(label: str, value: str) -> str:
+    """Render one summary card for the HTML report."""
+    return (
+        '<div class="stat">'
+        f'<div class="label">{escape(label)}</div>'
+        f'<div class="value">{escape(value)}</div>'
+        "</div>"
+    )
+
+
+def _final_row_html(rank: int, row: FinalPopulationSummaryRow) -> str:
+    """Render one final-population HTML table row."""
+    return (
+        "<tr>"
+        f"<td>{rank}</td>"
+        f"<td>{escape(str(row['strategy_name']))}</td>"
+        f"<td>{escape(str(row['population']))}</td>"
+        f"<td><code>{escape(str(row['dna']))}</code></td>"
+        f"<td>{escape(str(row['strategy_explanation']))}</td>"
+        "</tr>"
+    )
+
+
+def _line_chart_svg(
+    steps: list[int],
+    series_list: list[TimelineSeries],
+    y_min: float | None,
+    y_max: float | None,
+) -> str:
+    """Render a compact inline SVG multi-line chart."""
+    width = 1100
+    height = 320
+    left = 58
+    right = 20
+    top = 18
+    bottom = 34
+    plot_width = width - left - right
+    plot_height = height - top - bottom
+    if not steps or not series_list:
+        return ""
+    low = min(min(series.values) for series in series_list) if y_min is None else y_min
+    high = max(max(series.values) for series in series_list) if y_max is None else y_max
+    if high <= low:
+        high = low + 1.0
+
+    def x_pos(index: int) -> float:
+        if len(steps) == 1:
+            return left + plot_width / 2
+        return left + index * plot_width / (len(steps) - 1)
+
+    def y_pos(value: float) -> float:
+        return top + plot_height * (1.0 - ((value - low) / (high - low)))
+
+    grid = []
+    labels = []
+    for tick in range(5):
+        value = low + (high - low) * tick / 4
+        y = y_pos(value)
+        grid.append(f'<line x1="{left}" y1="{y:.1f}" x2="{left + plot_width}" y2="{y:.1f}" stroke="rgba(0,0,0,0.10)" />')
+        labels.append(f'<text x="{left - 8}" y="{y + 4:.1f}" text-anchor="end" font-size="12" fill="#5c5c5c">{value:.2f}</text>')
+    x_labels = [
+        f'<text x="{x_pos(index):.1f}" y="{height - 8}" text-anchor="middle" font-size="12" fill="#5c5c5c">{steps[index]}</text>'
+        for index in sorted({0, len(steps) // 2, len(steps) - 1})
+    ]
+    legend = []
+    paths = []
+    for idx, series in enumerate(series_list):
+        points = " ".join(f"{x_pos(i):.1f},{y_pos(v):.1f}" for i, v in enumerate(series.values))
+        paths.append(f'<polyline fill="none" stroke="{escape(series.color)}" stroke-width="3" points="{points}" />')
+        legend.append(
+            f'<g transform="translate({left + idx * 180},{top - 2})">'
+            f'<rect x="0" y="0" width="16" height="4" fill="{escape(series.color)}" rx="2" />'
+            f'<text x="22" y="6" font-size="12" fill="#003d5b">{escape(series.label)}</text>'
+            "</g>"
+        )
+    return (
+        f'<svg viewBox="0 0 {width} {height}" width="100%" role="img">'
+        + "".join(grid)
+        + f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + plot_height}" stroke="rgba(0,0,0,0.18)" />'
+        + f'<line x1="{left}" y1="{top + plot_height}" x2="{left + plot_width}" y2="{top + plot_height}" stroke="rgba(0,0,0,0.18)" />'
+        + "".join(paths)
+        + "".join(labels)
+        + "".join(x_labels)
+        + "".join(legend)
+        + "</svg>"
+    )
+
+
+def _strategy_chart_svg(bundle: VisualizationBundle) -> str:
+    """Render the top strategy population timelines as a line chart."""
+    return _line_chart_svg(
+        bundle.steps,
+        [
+            TimelineSeries(timeline.name, [float(value) for value in timeline.counts], timeline.color)
+            for timeline in bundle.top_strategy_timelines
+        ],
+        0.0,
+        float(bundle.max_strategy_count) if bundle.max_strategy_count > 0 else 1.0,
+    )
 
 
 def _fixed_dna_order(metrics: list[GenerationMetrics], top_n: int) -> list[str]:

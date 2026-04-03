@@ -324,8 +324,8 @@ The default seeded strategy list is:
 - `crossover_rate`: probability of attempting crossover when creating a child
 - `noise_rate`: probability that an action is flipped during match play
 - `death_rate`: fraction of the population removed each step by low-score elimination; the engine uses floor rounding, so tiny populations are not forced to lose one agent unless the configured fraction reaches at least one whole agent
-- `max_population_size`: population cap that triggers overflow culling when reached or exceeded
-- `overflow_cull_rate`: fraction of the current population removed during an overflow cull; the engine uses `ceil(overflow_cull_rate * current_population)` once the cap is hit, so very small capped populations can lose at least one agent
+- `max_population_size`: population cap that triggers overflow culling only when the live population exceeds the cap
+- `overflow_cull_rate`: fraction of the current population removed during an overflow cull; the engine uses `ceil(overflow_cull_rate * current_population)` once the population is above the cap, so very small overflowed populations can still lose at least one agent
 - `overflow_cull_score_correlation`: how strongly overflow culling favors low-score agents, from `0.0` random to `1.0` lowest-score first
 - `selection_epsilon`: small positive weight added during parent selection so no surviving agent has zero selection probability
 - `payoff_R`: reward payoff for mutual cooperation
@@ -424,10 +424,9 @@ Visualization is always a second step: run the simulation first, then render sta
 
 Config naming convention:
 
-- simulation configs (`sample_config.json`, regular configs, and `*_fast.json`) define the simulation run and export toggles
+- simulation configs (`sample_config.json` and the shipped `*_fast.json` files) define the simulation run and export toggles
 - simulation configs do not carry the visualization-only settings used for static report rendering
 - `*_fast.json`: simulation-oriented config with metrics/CSV/JSON exports enabled
-- regular simulation config: simulation-oriented config with the same metrics exports and alternate simulation parameters
 - `*_render_static.json`: visualization-only config used with `--render-from-metrics`
 - when rendering from saved metrics, pass the matching `*_render_static.json` file via `--render-config`
 
@@ -445,8 +444,9 @@ For very long runs, use the same pattern with the 10,000-step configs:
 .venv/bin/python main.py --config config_10000_steps_all_strategies_20_fast.json --render-config config_10000_steps_all_strategies_20_render_static.json --render-from-metrics sample_output_10000_all_strategies_20_fast/metrics.json
 ```
 
-The render step writes static outputs such as:
+The render step writes outputs such as:
 
+- `report.html`
 - `summary_infographic.png`
 - `status.txt`
 

@@ -159,6 +159,23 @@ Action-gene note:
 - in `LOOKUP`, `TRIGGER`, `COUNT_BASED`, `FSM`, and `COUNTER_TRIGGER`, the genome carries a family-level random-action probability used whenever an action gene is `RANDOM`
 - `PROBABILISTIC_LOOKUP` already stores explicit probabilities per state
 
+### What A Gene Means In Each Family
+
+Mutation works on raw bits, but the behavior-changing "gene" depends on the DNA family. In practice, a mutation or crossover event can change these properties:
+
+| Family | Genes / mutable properties |
+| --- | --- |
+| `LOOKUP` | initial action, memory depth, family-level random-action probability, each lookup-table action entry |
+| `TRIGGER` | initial action, default action, triggered action, trigger states, forgiveness probability, family-level random-action probability |
+| `COUNT_BASED` | initial action, lookback window, threshold, comparison mode, threshold decision direction, family-level random-action probability |
+| `PROBABILISTIC_LOOKUP` | initial cooperation probability, memory depth, per-state cooperation probabilities |
+| `FSM` | initial action, number of states, initial state, family-level random-action probability, every transition's next state and emitted action |
+| `SCRIPTED` | script id and any script-specific parameters encoded in the payload |
+| `COUNTER_TRIGGER` | initial/default/triggered actions, trigger states, punishment length, escalation flags, recovery flags, family-level random-action probability |
+| `NN` | feature count, hidden size, every encoded weight, every encoded bias |
+
+So a child can differ from its parents by a changed rule-table entry, a different threshold, a different FSM transition, a different scripted strategy id, or a changed neural weight, depending on the family.
+
 ## How Children Are Formed
 
 Children are created from raw bit-array DNA, but the outcome depends on whether the parent genomes are structurally compatible.

@@ -222,6 +222,28 @@ The DNA is decoded into one of the supported strategy families, such as:
 - `FSM`
 - `SCRIPTED`
 - `COUNTER_TRIGGER`
+- `NN`
+
+### What "Gene" Means Here
+
+The simulator mutates DNA at the bit level, but the meaningful unit is a behavior field inside the family payload.
+
+So, depending on the family, mutation or crossover can change things like:
+
+- a lookup-table response after a specific history
+- a trigger condition or forgiveness probability
+- a count threshold or lookback window
+- a probabilistic response rate
+- an FSM transition or current-machine layout
+- a scripted strategy id or script parameter
+- a punishment-length or escalation flag
+- a neural-network weight or bias
+
+That is why "gene" is family-specific in this project. It does not always mean "one table cell" or "one action". In some families it means a rule parameter, and in `NN` it means part of the encoded network.
+- `PROBABILISTIC_LOOKUP`
+- `FSM`
+- `SCRIPTED`
+- `COUNTER_TRIGGER`
 
 During a match, the strategy executor uses:
 

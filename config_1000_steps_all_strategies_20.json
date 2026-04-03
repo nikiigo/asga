@@ -109,5 +109,5 @@
   "output_dir": "sample_output_1000_all_strategies_20",
   "export_csv": true,
   "export_json": true,
-  "export_visuals": true
+  "export_visuals": false
 }

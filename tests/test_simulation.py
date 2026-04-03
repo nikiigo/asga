@@ -467,7 +467,7 @@ class DnaTests(unittest.TestCase):
             """{
   "num_steps": 3,
   "output_dir": "demo_output",
-  "export_visuals": true,
+  "export_visuals": false,
   "top_strategies_to_plot": 7,
   "viz_title_text": "Demo"
 }""",
@@ -480,6 +480,19 @@ class DnaTests(unittest.TestCase):
         self.assertEqual(visualization.output_dir, "demo_output")
         self.assertEqual(visualization.top_strategies_to_plot, 7)
         self.assertEqual(visualization.viz_title_text, "Demo")
+
+    def test_simulation_config_rejects_export_visuals_true(self) -> None:
+        path = Path("test_output_visuals/config_export_visuals_true.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            """{
+  "num_steps": 3,
+  "export_visuals": true
+}""",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "export_visuals is no longer supported"):
+            SimulationConfig.from_json(path)
 
     def test_simulation_config_rejects_unknown_keys(self) -> None:
         path = Path("test_output_visuals/config_unknown_key.json")
@@ -535,6 +548,58 @@ class DnaTests(unittest.TestCase):
         self.assertIn("Starting simulation for 1 steps.", stdout.getvalue())
         status = json.loads((output_dir / "status.txt").read_text(encoding="utf-8"))
         self.assertEqual(status["phase"], "done")
+
+    def test_cli_render_from_metrics_does_not_require_simulation_config(self) -> None:
+        metrics_path = Path("test_output_visuals/cli_render_only_metrics.json")
+        render_dir = Path("test_output_visuals/cli_render_only_output")
+        metrics_path.parent.mkdir(parents=True, exist_ok=True)
+        export_metrics_json(
+            [
+                GenerationMetrics(
+                    step=1,
+                    total_population_size=12,
+                    num_unique_strategies=1,
+                    population_count_per_dna={baseline_dna_library()["ALLC"].to_string(): 12},
+                    dominant_dna=baseline_dna_library()["ALLC"].to_string(),
+                    dominant_group_size=12,
+                    average_score=10.0,
+                    best_score=10.0,
+                    worst_score=10.0,
+                    score_distribution={"10": 12},
+                    overall_cooperation_rate=1.0,
+                    overall_defection_rate=0.0,
+                    diversity_entropy=0.0,
+                    dominant_strategy_share=1.0,
+                    matches_played=6,
+                    deaths_this_step=0,
+                    births_this_step=0,
+                    reproduction_step=False,
+                    mutation_count=0,
+                    crossover_count=0,
+                )
+            ],
+            metrics_path,
+        )
+        (render_dir / "summary_infographic.png").unlink(missing_ok=True)
+        (render_dir / "status.txt").unlink(missing_ok=True)
+        stdout = StringIO()
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "main.py",
+                "--config",
+                "does_not_exist.json",
+                "--render-config",
+                "config_1000_steps_all_strategies_20_render_static.json",
+                "--render-from-metrics",
+                str(metrics_path),
+            ],
+        ):
+            with redirect_stdout(stdout):
+                cli_main.main()
+        self.assertIn("Rendered visuals from metrics", stdout.getvalue())
+        self.assertTrue(Path("sample_output_1000_all_strategies_20_render_static/summary_infographic.png").exists())
 
 
 class StrategyTests(unittest.TestCase):
@@ -1415,7 +1480,7 @@ class EngineTests(unittest.TestCase):
             output_dir=str(output_dir),
             export_csv=True,
             export_json=True,
-            export_visuals=True,
+            export_visuals=False,
         )
         engine = EvolutionEngine.from_config(
             config,
@@ -1463,7 +1528,7 @@ class EngineTests(unittest.TestCase):
             output_dir=str(output_dir),
             export_csv=False,
             export_json=False,
-            export_visuals=True,
+            export_visuals=False,
         )
         engine = EvolutionEngine.from_config(
             config,
@@ -1557,7 +1622,7 @@ class EngineTests(unittest.TestCase):
             output_dir=str(metrics_dir),
             export_csv=True,
             export_json=True,
-            export_visuals=True,
+            export_visuals=False,
         )
         engine = EvolutionEngine.from_config(
             config,

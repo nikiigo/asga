@@ -91,7 +91,7 @@ If you want to run the Axelrod reference-verification tests, install the develop
 - Mutation interpreted as expected mutated genes per offspring genome
 - Configurable maximum population cap with overflow culling blended between random removal and low-score pressure
 - Per-step metrics with CSV and JSON export, including `DNA -> count`, dominant DNA, dominant group size, and dominant share
-- Interactive HTML report export
+- Static infographic rendering from saved metrics
 - Seeded initialization using deterministic baseline DNA plus random DNA
 
 ## Baseline Configuration
@@ -359,10 +359,10 @@ The default seeded strategy list is:
 - `verbose`: print one plain-text progress line per step
 - `debug`: print richer per-step plain-text lifecycle details
 - `trace`: print trace-level plain-text event logs
-- `output_dir`: directory for metrics and optional visual outputs
+- `output_dir`: directory for metrics exports
 - `export_csv`: whether to write CSV exports
 - `export_json`: whether to write JSON exports
-- `export_visuals`: whether to render the HTML report during the run
+- `export_visuals`: legacy field that must be `false`; in-run visualization is no longer supported
 
 Checkpoint behavior:
 
@@ -389,14 +389,14 @@ Visualization settings are:
 - `viz_unique_color`: color for unique-strategy count series
 - `viz_entropy_color`: color for diversity-entropy series
 - `viz_dominant_color`: color for dominant-share series
-- `viz_title_text`: compatibility field for report/visual title wording
-- `viz_subtitle_text`: compatibility field for report subtitle wording
+- `viz_title_text`: title wording used in the static infographic
+- `viz_subtitle_text`: subtitle wording used in the static infographic
 - `viz_behavior_title`: heading for the behavior-over-time panel
 - `viz_structure_title`: heading for the population-structure panel
 - `viz_leader_title`: compatibility field for leader-summary wording
-- `viz_report_title`: HTML `<title>` text for the report page
-- `viz_report_heading`: main heading shown at the top of the HTML report
-- `viz_report_description`: short descriptive paragraph shown in the HTML report header
+- `viz_report_title`: compatibility field retained for older configs
+- `viz_report_heading`: compatibility field retained for older configs
+- `viz_report_description`: compatibility field retained for older configs
 
 ## Output
 
@@ -408,40 +408,26 @@ The simulator exports generated files under the configured `output_dir`, for exa
 - `sample_output/population_breakdown.json`
 - `sample_output/final_population_summary.csv`
 - `sample_output/final_population_summary.json`
-- `sample_output/report.html`
 
-These files are visualization-ready and include:
+These files are the simulation outputs and include:
 
 - per-step population breakdowns ordered by descending DNA group size
 - human-readable strategy explanations decoded from raw DNA
 - stable output names for non-baseline DNA, labeled as `Hybrid1`, `Hybrid2`, and so on
 - a final-step ordered strategy summary with strategy name, raw DNA, population, and explanation
-- an interactive Plotly report in `report.html`
 
 The primary success criterion is population spread: the winning strategy is the DNA group with the largest number of living agents at the final step.
 
 If the final population is empty, there is no winner for that run; outputs report that case as `no surviving strategy`.
 
-Plain-language guide to the report graphs:
-
-- `Run Overview`: shows how cooperation, defection, births, deaths, diversity, and dominant-share changed over time
-- `Strategy Landscape`: shows how the largest strategies split the population over time; thicker areas mean more agents
-- `Final Population Ranking`: shows which strategies are largest at the last step
-- `Hybrid Emergence`: shows when new non-baseline strategies appeared and how much of the population is hybrid versus baseline
-- `Final Strategy Catalog`: lists each surviving strategy with its population, raw DNA, and explanation
-- interpretation rule: individual score controls survival and reproduction, while DNA-group population size determines the dominant strategy
-
-For long runs, a practical workflow is:
-
-1. run a fast config with `export_visuals: false`
-2. render visuals afterward from the saved metrics JSON
+Visualization is always a second step: run the simulation first, then render static outputs afterward from `metrics.json`.
 
 Config naming convention:
 
 - simulation configs (`sample_config.json`, regular configs, and `*_fast.json`) define the simulation run and export toggles
 - simulation configs do not carry the visualization-only settings used for static report rendering
-- `*_fast.json`: simulation-only run, metrics/CSV/JSON exports enabled, visual export disabled
-- regular simulation config: simulation run with normal visual export enabled, using visualization defaults derived in code unless a separate render config is provided
+- `*_fast.json`: simulation-oriented config with metrics/CSV/JSON exports enabled
+- regular simulation config: simulation-oriented config with the same metrics exports and alternate simulation parameters
 - `*_render_static.json`: visualization-only config used with `--render-from-metrics`
 - when rendering from saved metrics, pass the matching `*_render_static.json` file via `--render-config`
 
@@ -458,6 +444,11 @@ For very long runs, use the same pattern with the 10,000-step configs:
 .venv/bin/python main.py --config config_10000_steps_all_strategies_20_fast.json
 .venv/bin/python main.py --config config_10000_steps_all_strategies_20_fast.json --render-config config_10000_steps_all_strategies_20_render_static.json --render-from-metrics sample_output_10000_all_strategies_20_fast/metrics.json
 ```
+
+The render step writes static outputs such as:
+
+- `summary_infographic.png`
+- `status.txt`
 
 ## Axelrod Mapping
 

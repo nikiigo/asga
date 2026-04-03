@@ -163,11 +163,7 @@ class EvolutionEngine:
     def export(self, metrics: list[GenerationMetrics]) -> None:
         """Export recorded metrics in configured formats."""
         self._write_status("export", target_dir=self.config.output_dir, metrics_steps=len(metrics))
-        self._export_to_directory(
-            metrics,
-            self.config.output_dir,
-            visual_output_dir=self.visualization_config.output_dir,
-        )
+        self._export_to_directory(metrics, self.config.output_dir)
         self._write_status("done", target_dir=self.config.output_dir, metrics_steps=len(metrics))
 
     def export_checkpoint(self, metrics: list[GenerationMetrics], step: int) -> None:
@@ -179,21 +175,16 @@ class EvolutionEngine:
             " The program is still running and has not hung.",
             flush=True,
         )
-        self._export_to_directory(metrics, checkpoint_dir, visual_output_dir=checkpoint_dir)
+        self._export_to_directory(metrics, checkpoint_dir)
         print(f"Checkpoint written: {checkpoint_dir}", flush=True)
 
     def _export_to_directory(
         self,
         metrics: list[GenerationMetrics],
         output_dir: str,
-        visual_output_dir: str | None = None,
     ) -> None:
         """Export recorded metrics in configured formats to a specific directory."""
-        prepared_export = (
-            prepare_export_data(metrics)
-            if self.config.export_visuals and metrics
-            else None
-        )
+        prepared_export = prepare_export_data(metrics) if metrics else None
         if self.config.export_csv and metrics:
             export_metrics_csv(metrics, f"{output_dir}/metrics.csv", prepared_export=prepared_export)
             export_population_breakdown_csv(
@@ -216,15 +207,6 @@ class EvolutionEngine:
             export_final_population_summary_json(
                 metrics,
                 f"{output_dir}/final_population_summary.json",
-                prepared_export=prepared_export,
-            )
-        if self.config.export_visuals and metrics:
-            from cooperation_ga.visualization import export_visualizations
-
-            export_visualizations(
-                metrics,
-                visual_output_dir or output_dir,
-                self.visualization_config,
                 prepared_export=prepared_export,
             )
 

@@ -346,6 +346,11 @@ class SimulationConfig:
             raise ValueError("max_children_per_agent must be positive.")
         if self.allow_self_pairing is not None:
             self.allow_same_dna_pairing = self.allow_self_pairing
+        if self.export_visuals:
+            raise ValueError(
+                "export_visuals is no longer supported during simulation runs. "
+                "Render static outputs afterward with --render-from-metrics."
+            )
         if self.pairing_mode == "fixed":
             if self.fixed_pairs_per_reproduction is None:
                 raise ValueError("fixed_pairs_per_reproduction must be set when pairing_mode is 'fixed'.")

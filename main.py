@@ -60,23 +60,13 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     """Run a simulation and export its metrics."""
     args = build_parser().parse_args()
-    config = SimulationConfig.from_json(args.config)
-    if args.verbose:
-        config.verbose = True
-    if args.debug:
-        config.debug = True
-        config.verbose = True
-    if args.trace:
-        config.trace = True
-        config.debug = True
-        config.verbose = True
-    if args.render_config is not None:
-        visualization_config = VisualizationConfig.from_json(args.render_config)
-    else:
-        visualization_config = VisualizationConfig.from_simulation_config(config)
     if args.render_from_metrics is not None:
         from cooperation_ga.visualization import export_visualizations
 
+        if args.render_config is not None:
+            visualization_config = VisualizationConfig.from_json(args.render_config)
+        else:
+            visualization_config = VisualizationConfig()
         _write_status(
             Path(visualization_config.output_dir) / "status.txt",
             "load_metrics",
@@ -91,8 +81,22 @@ def main() -> None:
         metrics = load_metrics_json(args.render_from_metrics)
         export_visualizations(metrics, visualization_config.output_dir, visualization_config)
         print(f"Rendered visuals from metrics: {args.render_from_metrics}", flush=True)
-        print(f"Visual report: {Path(visualization_config.output_dir) / 'report.html'}", flush=True)
+        print(f"Static infographic: {Path(visualization_config.output_dir) / 'summary_infographic.png'}", flush=True)
         return
+    config = SimulationConfig.from_json(args.config)
+    if args.verbose:
+        config.verbose = True
+    if args.debug:
+        config.debug = True
+        config.verbose = True
+    if args.trace:
+        config.trace = True
+        config.debug = True
+        config.verbose = True
+    if args.render_config is not None:
+        visualization_config = VisualizationConfig.from_json(args.render_config)
+    else:
+        visualization_config = VisualizationConfig.from_simulation_config(config)
     engine = EvolutionEngine.from_config(config, visualization_config)
     _write_status(Path(config.output_dir) / "status.txt", "starting", total_steps=config.num_steps, output_dir=config.output_dir)
     print(
@@ -100,12 +104,8 @@ def main() -> None:
         flush=True,
     )
     metrics = engine.run()
-    export_targets = [config.output_dir]
-    if config.export_visuals and visualization_config.output_dir not in export_targets:
-        export_targets.append(visualization_config.output_dir)
-    export_target_text = ", ".join(export_targets)
     print(
-        f"Simulation finished. Writing results to: {export_target_text}..."
+        f"Simulation finished. Writing results to: {config.output_dir}..."
         " The program is still running and has not hung.",
         flush=True,
     )
@@ -127,8 +127,6 @@ def main() -> None:
             f"explanation={row['strategy_explanation']}",
             flush=True,
         )
-    if config.export_visuals:
-        print(f"Visual report: {Path(visualization_config.output_dir) / 'report.html'}", flush=True)
 
 
 if __name__ == "__main__":

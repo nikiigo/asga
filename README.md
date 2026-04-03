@@ -419,6 +419,8 @@ These files are visualization-ready and include:
 
 The primary success criterion is population spread: the winning strategy is the DNA group with the largest number of living agents at the final step.
 
+If the final population is empty, there is no winner for that run; outputs report that case as `no surviving strategy`.
+
 Plain-language guide to the report graphs:
 
 - `Run Overview`: shows how cooperation, defection, births, deaths, diversity, and dominant-share changed over time

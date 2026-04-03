@@ -155,7 +155,8 @@ To avoid zero-weight problems, the engine shifts scores by the current minimum a
 
 In the current implementation:
 
-- one selected parent pair produces one child per reproductive event
+- one selected parent pair can produce up to `offspring_per_pair` children per reproductive event
+- the actual number for that pair is capped by the parents' remaining lifetime child capacity
 - each parent tracks how many children it has produced over its lifetime
 - once an agent reaches `max_children_per_agent`, it dies
 
@@ -281,6 +282,8 @@ The dominant strategy is defined as:
 So the winning strategy is not the one with the single highest-scoring individual.
 
 It is the one that spreads the most through the population.
+
+If the population goes extinct, there is no winning strategy for that run. The outputs report that case as `no surviving strategy`.
 
 ## Outputs
 

@@ -70,34 +70,14 @@ During long runs, the CLI prints an explicit message when the simulation loop ha
 
 ## Single-File Release
 
-The project can be packaged as a single executable with PyInstaller.
+End-user binary instructions are kept in the GitHub release notes so the main README stays shorter:
 
-Build it from the repo root:
+- [v0.1.0 release notes](https://github.com/nikiigo/asga/releases/tag/v0.1.0)
+
+For maintainers, the local packaging command is:
 
 ```bash
 ./build_release.sh
-```
-
-That produces:
-
-- `dist/asga`
-
-The executable bundles:
-
-- the simulator code
-- the ANN weight CSV
-- the shipped example JSON configs
-
-Run it directly:
-
-```bash
-./dist/asga
-```
-
-Or extract the bundled example configs for editing:
-
-```bash
-./dist/asga --copy-example-configs ./example_configs
 ```
 
 ## Example Run

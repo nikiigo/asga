@@ -9,6 +9,7 @@ from pathlib import Path
 from cooperation_ga.config import SimulationConfig, VisualizationConfig
 from cooperation_ga.evolution import EvolutionEngine
 from cooperation_ga.metrics import final_population_summary_rows, load_metrics_json
+from cooperation_ga.runtime import bundled_sample_config_path, copy_example_configs
 
 
 def _write_status(path: Path, phase: str, **payload: object) -> None:
@@ -24,8 +25,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path("sample_config.json"),
-        help="Path to a JSON configuration file.",
+        default=None,
+        help="Path to a JSON configuration file. Defaults to the bundled sample config.",
     )
     parser.add_argument(
         "--render-from-metrics",
@@ -54,12 +55,24 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print trace-level event logs during simulation runs.",
     )
+    parser.add_argument(
+        "--copy-example-configs",
+        type=Path,
+        default=None,
+        help="Copy the bundled example JSON configs into the given directory and exit.",
+    )
     return parser
 
 
 def main() -> None:
     """Run a simulation and export its metrics."""
     args = build_parser().parse_args()
+    if args.copy_example_configs is not None:
+        copied = copy_example_configs(args.copy_example_configs)
+        print(f"Copied {len(copied)} example config files to {args.copy_example_configs}", flush=True)
+        for path in copied:
+            print(path, flush=True)
+        return
     if args.render_from_metrics is not None:
         from cooperation_ga.visualization import export_visualizations
 
@@ -89,7 +102,7 @@ def main() -> None:
             "--render-config is only supported together with --render-from-metrics. "
             "Simulation runs export metrics only."
         )
-    config = SimulationConfig.from_json(args.config)
+    config = SimulationConfig.from_json(args.config or bundled_sample_config_path())
     if args.verbose:
         config.verbose = True
     if args.debug:

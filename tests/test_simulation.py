@@ -41,6 +41,7 @@ from cooperation_ga.metrics import (
     strategy_name_by_dna,
 )
 from cooperation_ga.population import Population
+from cooperation_ga.runtime import bundled_sample_config_path
 from cooperation_ga.strategy import DnaStrategy, GrimTriggerStrategy, ParticipantSpec, RandomStrategy
 from cooperation_ga.tournament import run_interactions
 
@@ -591,6 +592,28 @@ class DnaTests(unittest.TestCase):
         self.assertIn("Starting simulation for 1 steps.", stdout.getvalue())
         status = json.loads((output_dir / "status.txt").read_text(encoding="utf-8"))
         self.assertEqual(status["phase"], "done")
+
+    def test_cli_uses_bundled_sample_config_by_default(self) -> None:
+        output_dir = Path("sample_output")
+        (output_dir / "status.txt").unlink(missing_ok=True)
+        stdout = StringIO()
+        with patch.object(sys, "argv", ["main.py"]):
+            with redirect_stdout(stdout):
+                cli_main.main()
+        self.assertIn("Starting simulation for 25 steps.", stdout.getvalue())
+        status = json.loads((output_dir / "status.txt").read_text(encoding="utf-8"))
+        self.assertEqual(status["phase"], "done")
+
+    def test_cli_can_copy_bundled_example_configs(self) -> None:
+        destination = Path("test_output_visuals/copied_example_configs")
+        stdout = StringIO()
+        with patch.object(sys, "argv", ["main.py", "--copy-example-configs", str(destination)]):
+            with redirect_stdout(stdout):
+                cli_main.main()
+        copied = {path.name for path in destination.glob("*.json")}
+        self.assertIn(bundled_sample_config_path().name, copied)
+        self.assertIn("sample_render_config.json", copied)
+        self.assertIn("Copied", stdout.getvalue())
 
     def test_cli_rejects_render_config_during_simulation_runs(self) -> None:
         config_path = Path("test_output_visuals/cli_simulation_rejects_render_config.json")

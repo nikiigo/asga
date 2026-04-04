@@ -36,6 +36,12 @@ Run the sample experiment:
 .venv/bin/python main.py --config sample_config.json
 ```
 
+Copy the bundled example configs into a local folder:
+
+```bash
+.venv/bin/python main.py --copy-example-configs ./example_configs
+```
+
 Render a static infographic from saved metrics with a separate visualization config:
 
 ```bash
@@ -61,6 +67,38 @@ Run with trace-level plain-text event logging:
 ```
 
 During long runs, the CLI prints an explicit message when the simulation loop has finished and the program is writing results to disk. That export phase can take noticeable time on large runs, so this message confirms the process is still active and has not hung.
+
+## Single-File Release
+
+The project can be packaged as a single executable with PyInstaller.
+
+Build it from the repo root:
+
+```bash
+./build_release.sh
+```
+
+That produces:
+
+- `dist/asga`
+
+The executable bundles:
+
+- the simulator code
+- the ANN weight CSV
+- the shipped example JSON configs
+
+Run it directly:
+
+```bash
+./dist/asga
+```
+
+Or extract the bundled example configs for editing:
+
+```bash
+./dist/asga --copy-example-configs ./example_configs
+```
 
 ## Example Run
 
